@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Update these tokens to rebrand the whole application. */
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+  --color-page: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eef2f7;
+  --color-border: #e2e8f0;
+  --color-text: #172033;
+  --color-text-muted: #64748b;
+  --color-text-inverted: #ffffff;
+  --color-primary: #4f46e5;
+  --color-primary-soft: #eef2ff;
+  --color-primary-strong: #3730a3;
+  --color-success: #047857;
+  --color-success-soft: #ecfdf5;
+  --color-focus: #818cf8;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-display: 2.25rem;
+  --line-height-body: 1.5;
+  --line-height-heading: 1.2;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-pill: 9999px;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05);
+
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-page);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background: var(--color-page);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    line-height: var(--line-height-body);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .app-shell {
+    min-height: 100vh;
+    background: var(--color-page);
+  }
+
+  .app-header {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .app-brand {
+    color: var(--color-text);
+    font-size: var(--text-lg);
+    font-weight: 600;
+  }
+
+  .app-status {
+    border-radius: var(--radius-pill);
+    background: var(--color-success-soft);
+    color: var(--color-success);
+    font-size: var(--text-sm);
+  }
+
+  .eyebrow {
+    color: var(--color-primary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .page-title {
+    color: var(--color-text);
+    font-size: var(--text-display);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: var(--line-height-heading);
+  }
+
+  .page-description,
+  .card-description {
+    color: var(--color-text-muted);
+  }
+
+  .page-description {
+    font-size: var(--text-lg);
+  }
+
+  .content-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .content-card-title {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .card-description {
+    font-size: var(--text-sm);
+  }
+}
