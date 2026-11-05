@@ -70,3 +70,4 @@ export const LoginForm: FC<LoginFormProps> = ({ onSubmit, isLoading = false }) =
     </form>
   );
 };
+

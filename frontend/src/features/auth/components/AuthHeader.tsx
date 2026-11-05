@@ -39,3 +39,4 @@ export const AuthHeader: FC<AuthHeaderProps> = ({
     </div>
   );
 };
+

@@ -11,3 +11,4 @@ export const AuthCard: FC<AuthCardProps> = ({ children }) => {
     </div>
   );
 };
+

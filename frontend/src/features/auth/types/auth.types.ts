@@ -8,3 +8,4 @@ export interface AuthState {
   username: string | null;
   error?: string | null;
 }
+

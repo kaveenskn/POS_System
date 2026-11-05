@@ -24,3 +24,4 @@ export const AuthFooter: FC<AuthFooterProps> = ({
     </div>
   );
 };
+

@@ -4,3 +4,4 @@ export { AuthHeader } from './components/AuthHeader';
 export { LoginForm } from './components/LoginForm';
 export { AuthFooter } from './components/AuthFooter';
 export * from './types/auth.types';
+
