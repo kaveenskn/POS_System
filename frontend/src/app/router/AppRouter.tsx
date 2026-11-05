@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { LandingPage } from '../../features/landing';
+import { LoginPage } from '../../features/auth';
 
 export function AppRouter() {
   return (
@@ -10,6 +11,9 @@ export function AppRouter() {
       <Routes>
         {/* Customer-facing Landing Page */}
         <Route path="/" element={<LandingPage />} />
+
+        {/* Staff / Admin Login Page */}
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Staff & POS Foundation Dashboard */}
         <Route

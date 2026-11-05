@@ -7,7 +7,7 @@ export const LandingPage: FC = () => {
   const navigate = useNavigate();
 
   const handleNavigateToStaff = () => {
-    navigate('/dashboard');
+    navigate('/login');
   };
 
   const handleShopParts = () => {
