@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { productService } from '../../services/productService';
+import { generateAutoBarcode, generateAutoSku } from '../../utils/barcodeGenerator';
 import type {
   Brand,
   Category,
@@ -80,6 +81,7 @@ export const ProductsPage: FC = () => {
     title: string;
     message: string;
     confirmLabel?: string;
+    cancelLabel?: string;
     isDestructive?: boolean;
     onConfirm: () => Promise<void>;
   }>({
@@ -101,10 +103,10 @@ export const ProductsPage: FC = () => {
         productService.getCategories(),
         productService.getBrands(),
       ]);
-      setCategories(cats);
-      setBrands(brs);
-    } catch {
-      // ignore
+      setCategories(cats || []);
+      setBrands(brs || []);
+    } catch (err) {
+      console.warn('Backend categories/brands fetch error:', err);
     }
   };
 
@@ -135,8 +137,11 @@ export const ProductsPage: FC = () => {
       setProducts(res.items);
       setTotal(res.total);
       setStats(statistics);
-    } catch {
-      showNotification('Failed to fetch products', 'error');
+    } catch (err) {
+      showNotification(
+        err instanceof Error ? err.message : 'Unable to connect to backend server. Ensure backend is running.',
+        'error'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -235,13 +240,14 @@ export const ProductsPage: FC = () => {
       ...product,
       id: 0,
       name: `${product.name} (Copy)`,
-      code: `${product.code}-COPY`,
-      barcode: null,
+      code: generateAutoSku(product.category, product.brand),
+      barcode: generateAutoBarcode(),
       quantity: 0,
       opening_stock: 0,
     };
     setEditingProduct(copy);
     setViewMode('form');
+    showNotification(`Duplicate template created for "${product.name}". Unique SKU & Barcode generated; stock reset to 0.`);
   };
 
   // Activate / Deactivate
@@ -287,20 +293,30 @@ export const ProductsPage: FC = () => {
 
   // Delete Product
   const handleDeleteProduct = (product: Product) => {
+    const hasHistory = product.quantity > 0 || (product.opening_stock && product.opening_stock > 0);
+
     setConfirmDialogState({
       isOpen: true,
-      title: 'Delete Product?',
-      message: `Are you sure you want to permanently delete "${product.name}"? If this item has previous sales or inventory history, it is recommended to Archive it instead.`,
-      confirmLabel: 'Delete Permanently',
-      isDestructive: true,
+      title: `Delete "${product.name}"?`,
+      message: hasHistory
+        ? `"${product.name}" (SKU: ${product.code}) has recorded stock or transaction history. Permanent deletion will disrupt audit trails. We recommend Archiving it instead so it is hidden from new sales while preserving historical records.`
+        : `Are you sure you want to permanently delete "${product.name}" (SKU: ${product.code})? This action cannot be undone.`,
+      confirmLabel: hasHistory ? 'Archive Instead (Recommended)' : 'Delete Permanently',
+      cancelLabel: 'Keep Product',
+      isDestructive: !hasHistory,
       onConfirm: async () => {
         try {
-          await productService.deleteProduct(product.id);
-          showNotification(`Product "${product.name}" deleted.`);
+          if (hasHistory) {
+            await productService.updateProduct(product.id, { status: 'archived' });
+            showNotification(`Product "${product.name}" has been safely archived to preserve history.`);
+          } else {
+            await productService.deleteProduct(product.id);
+            showNotification(`Product "${product.name}" deleted.`);
+          }
           setConfirmDialogState((prev) => ({ ...prev, isOpen: false }));
           fetchProductsAndStats();
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : 'Cannot delete product with history';
+          const msg = err instanceof Error ? err.message : 'Cannot delete product with historical records';
           showNotification(msg, 'error');
           setConfirmDialogState((prev) => ({ ...prev, isOpen: false }));
         }
@@ -681,6 +697,7 @@ export const ProductsPage: FC = () => {
         title={confirmDialogState.title}
         message={confirmDialogState.message}
         confirmLabel={confirmDialogState.confirmLabel}
+        cancelLabel={confirmDialogState.cancelLabel}
         isDestructive={confirmDialogState.isDestructive}
         onConfirm={confirmDialogState.onConfirm}
         onCancel={() => setConfirmDialogState((prev) => ({ ...prev, isOpen: false }))}

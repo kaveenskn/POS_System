@@ -44,7 +44,7 @@ export const ProductDetailsModal: FC<ProductDetailsModalProps> = ({
   if (!isOpen || !product) return null;
 
   const profit = product.selling_price - product.cost_price;
-  const marginPct = product.cost_price > 0 ? (profit / product.cost_price) * 100 : 0;
+  const marginPct = product.selling_price > 0 ? (profit / product.selling_price) * 100 : 0;
   const variations: ProductVariation[] = product.variations_json
     ? JSON.parse(product.variations_json)
     : [];

@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.db.init_db import init_database
 from app.middleware.security import security_headers_middleware
 
 settings = get_settings()
@@ -23,6 +24,7 @@ limiter = Limiter(
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings)
+    init_database()
     yield
 
 

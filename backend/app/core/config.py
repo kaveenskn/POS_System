@@ -13,9 +13,12 @@ class Settings(BaseSettings):
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
     database_url: str = Field(
-        "postgresql+psycopg://pos_user:change-me-in-development@localhost:5432/pos_db",
+        "sqlite:///./pos_system.db",
         validation_alias="DATABASE_URL",
     )
+    supabase_url: str | None = Field(None, validation_alias="SUPABASE_URL")
+    supabase_key: str | None = Field(None, validation_alias="SUPABASE_KEY")
+    supabase_service_role_key: str | None = Field(None, validation_alias="SUPABASE_SERVICE_ROLE_KEY")
     jwt_secret_key: SecretStr = Field(
         SecretStr("development-only-change-me"),
         validation_alias="JWT_SECRET_KEY",
@@ -23,7 +26,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
-    backend_cors_origins: list[str] = Field(default_factory=list)
+    backend_cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+    )
     log_level: str = "INFO"
     rate_limit_per_minute: int = 120
     max_request_body_bytes: int = 1_048_576
