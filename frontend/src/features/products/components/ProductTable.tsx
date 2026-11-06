@@ -73,22 +73,20 @@ export const ProductTable: FC<ProductTableProps> = ({
                 />
               </th>
               <th className="px-3 py-3.5 w-14">Image</th>
-              <th className="px-4 py-3.5 min-w-[200px]">Part / Model</th>
+              <th className="px-4 py-3.5 min-w-[200px]">Product Name</th>
               <th className="px-4 py-3.5">SKU</th>
               <th className="px-4 py-3.5">Barcode</th>
               <th className="px-4 py-3.5">Category</th>
-              <th className="px-4 py-3.5">Brand</th>
-              <th className="px-4 py-3.5 text-right">Cost (Rs.)</th>
-              <th className="px-4 py-3.5 text-right">Retail (Rs.)</th>
-              <th className="px-4 py-3.5 text-center">Stock</th>
-              <th className="px-4 py-3.5 text-center">Status</th>
+              <th className="px-4 py-3.5 text-right">Selling Price</th>
+              <th className="px-4 py-3.5 text-center">Available Stock</th>
+              <th className="px-4 py-3.5 text-center">Stock Status</th>
               <th className="px-4 py-3.5 text-right w-16">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#292b31]/60">
             {isLoading ? (
               <tr>
-                <td colSpan={12} className="px-6 py-16 text-center text-[#9a9ca6]">
+                <td colSpan={10} className="px-6 py-16 text-center text-[#9a9ca6]">
                   <div className="inline-flex items-center gap-2">
                     <svg className="w-5 h-5 animate-spin text-[#f0442f]" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -100,7 +98,7 @@ export const ProductTable: FC<ProductTableProps> = ({
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-16 text-center">
+                <td colSpan={10} className="px-6 py-16 text-center">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
                     <div className="w-12 h-12 rounded-2xl bg-[#22242b] border border-[#292b31] flex items-center justify-center text-[#9a9ca6] mb-3">
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -153,27 +151,29 @@ export const ProductTable: FC<ProductTableProps> = ({
                           />
                         ) : (
                           <span className="text-xs font-bold text-[#6f727d]">
-                            {item.brand.slice(0, 2).toUpperCase()}
+                            {item.brand ? item.brand.slice(0, 2).toUpperCase() : 'SP'}
                           </span>
                         )}
                       </div>
                     </td>
 
-                    {/* Name & Compatible Models */}
+                    {/* Name */}
                     <td className="px-4 py-3">
                       <button
                         type="button"
                         onClick={() => onViewProduct(item)}
-                        className="font-bold text-white hover:text-[#f0442f] transition text-left line-clamp-1 block"
+                        className="font-bold text-white hover:text-[#f0442f] transition text-left line-clamp-1 block text-sm"
                       >
                         {item.name}
                       </button>
-                      {item.compatible_models && (
-                        <div className="text-[11px] text-[#9a9ca6] line-clamp-1 mt-0.5 flex items-center gap-1">
-                          <span className="text-[#f0442f] font-mono">🏍</span>
-                          <span>{item.compatible_models}</span>
-                        </div>
-                      )}
+                      <div className="text-[11px] text-[#9a9ca6] flex items-center gap-2 mt-0.5">
+                        <span>{item.brand || 'Unbranded'}</span>
+                        {item.status !== 'active' && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] bg-zinc-800 text-zinc-400 uppercase">
+                            {item.status}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* SKU */}
@@ -198,51 +198,36 @@ export const ProductTable: FC<ProductTableProps> = ({
                       <span className="line-clamp-1">{item.category}</span>
                     </td>
 
-                    {/* Brand */}
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-[#22242b] text-[#f3f4f6] border border-[#292b31]">
-                        {item.brand}
-                      </span>
-                    </td>
-
-                    {/* Cost */}
-                    <td className="px-4 py-3 text-right font-mono text-xs text-[#9a9ca6]">
-                      {Number(item.cost_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-
-                    {/* Selling */}
+                    {/* Selling Price */}
                     <td className="px-4 py-3 text-right font-mono text-xs font-bold text-white">
-                      {Number(item.selling_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      Rs. {Number(item.selling_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
 
-                    {/* Stock & Unit */}
+                    {/* Available Stock */}
                     <td className="px-4 py-3 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold ${
-                          isOutOfStock
-                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                            : isLowStock
-                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                            : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                        }`}
-                      >
+                      <span className="font-mono text-xs font-bold text-white">
                         {item.quantity} {item.unit}
                       </span>
                     </td>
 
-                    {/* Product Status */}
+                    {/* Stock Status (Clear Readable Indicators, not color alone) */}
                     <td className="px-4 py-3 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider ${
-                          item.status === 'active'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : item.status === 'inactive'
-                            ? 'bg-zinc-700/30 text-zinc-400 border border-zinc-700/40'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {item.status}
-                      </span>
+                      {isOutOfStock ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap">
+                          <span className="text-[10px]">🔴</span>
+                          <span>Out of Stock</span>
+                        </span>
+                      ) : isLowStock ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                          <span className="text-[10px]">⚠️</span>
+                          <span>Low Stock</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                          <span className="text-[10px]">🟢</span>
+                          <span>In Stock</span>
+                        </span>
+                      )}
                     </td>
 
                     {/* Row Actions Menu */}

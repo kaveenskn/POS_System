@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { vi } from 'vitest';
 import { ProductsPage } from './ProductsPage';
+import { productService } from '../../services/productService';
 import { encodeCode128, generateCode128Svg } from '../../utils/barcodeGenerator';
 
 describe('ProductsPage & Barcode Engine', () => {
@@ -18,6 +20,47 @@ describe('ProductsPage & Barcode Engine', () => {
   });
 
   it('renders products page with statistics cards, filters, and action buttons', async () => {
+    vi.spyOn(productService, 'getProducts').mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          name: 'Brembo Sintered Front Brake Pads',
+          code: 'BRM-BP-001',
+          barcode: '200109283741',
+          barcode_type: 'CODE128',
+          category: 'Braking System',
+          brand: 'Brembo',
+          product_type: 'standard',
+          status: 'active',
+          cost_price: 1850,
+          selling_price: 2650,
+          default_discount: 0,
+          tax_rate: 0,
+          quantity: 18,
+          opening_stock: 25,
+          unit: 'Pairs',
+          min_stock_level: 5,
+          reorder_level: 10,
+          stock_tracking_enabled: true,
+          preferred_supplier: false,
+          is_featured: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      total: 1,
+    });
+    vi.spyOn(productService, 'getStatistics').mockResolvedValue({
+      total_products: 1,
+      active_products: 1,
+      low_stock_products: 0,
+      out_of_stock_products: 0,
+      total_inventory_value: 33300,
+      categories_count: 1,
+    });
+    vi.spyOn(productService, 'getCategories').mockResolvedValue([{ id: 1, name: 'Braking System' }]);
+    vi.spyOn(productService, 'getBrands').mockResolvedValue([{ id: 1, name: 'Brembo' }]);
+
     render(
       <BrowserRouter>
         <ProductsPage />
@@ -41,4 +84,3 @@ describe('ProductsPage & Barcode Engine', () => {
     });
   });
 });
-

@@ -1,14 +1,11 @@
-import { useState } from 'react';
-import type { FC, FormEvent } from 'react';
+import { useState, useRef } from 'react';
+import type { FC, FormEvent, ChangeEvent } from 'react';
 import type {
   BarcodeType,
   Brand,
   Category,
   Product,
   ProductCreateInput,
-  ProductStatus,
-  ProductType,
-  ProductVariation,
 } from '../../../types/product.types';
 import {
   generateAutoBarcode,
@@ -26,11 +23,11 @@ interface ProductFormViewProps {
   isLoading?: boolean;
 }
 
-const UNITS = [
+const COMMON_UNITS = [
   'Pieces',
-  'Pairs',
-  'Sets',
   'Bottles',
+  'Sets',
+  'Pairs',
   'Boxes',
   'Litres',
   'Kilograms',
@@ -47,178 +44,222 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
   isLoading = false,
 }) => {
   const isEditing = Boolean(initialProduct);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State
+  // SECTION 1: Product Information
   const [name, setName] = useState(initialProduct?.name || '');
   const [code, setCode] = useState(initialProduct?.code || generateAutoSku('General', 'TL'));
-  const [barcode, setBarcode] = useState(initialProduct?.barcode || generateAutoBarcode());
-  const [barcodeType, setBarcodeType] = useState(initialProduct?.barcode_type || 'CODE128');
-  const [category, setCategory] = useState(initialProduct?.category || (categories[0]?.name ?? 'Braking System'));
-  const [subcategory, setSubcategory] = useState(initialProduct?.subcategory || '');
-  const [brand, setBrand] = useState(initialProduct?.brand || (brands[0]?.name ?? 'TorqueLine'));
-  const [productType, setProductType] = useState<ProductType>(initialProduct?.product_type || 'standard');
-  const [status, setStatus] = useState(initialProduct?.status || 'active');
-  const [description, setDescription] = useState(initialProduct?.description || '');
+  const [category, setCategory] = useState(
+    initialProduct?.category || (categories[0]?.name ?? 'Braking System')
+  );
+  const [brand, setBrand] = useState(initialProduct?.brand || '');
   const [imageUrl, setImageUrl] = useState(initialProduct?.image_url || '');
+  const [description, setDescription] = useState(initialProduct?.description || '');
 
-  // Pricing
-  const [costPrice, setCostPrice] = useState<number | ''>(initialProduct?.cost_price ?? 1200);
-  const [sellingPrice, setSellingPrice] = useState<number | ''>(initialProduct?.selling_price ?? 1750);
+  // SECTION 2: Barcode Management
+  const [barcode, setBarcode] = useState(initialProduct?.barcode || generateAutoBarcode());
+  const [barcodeType] = useState<BarcodeType>(initialProduct?.barcode_type || 'CODE128');
+  const [isScannerActive, setIsScannerActive] = useState(false);
+
+  // SECTION 3: Pricing
+  const [costPrice, setCostPrice] = useState<number | ''>(initialProduct?.cost_price ?? '');
+  const [sellingPrice, setSellingPrice] = useState<number | ''>(initialProduct?.selling_price ?? '');
   const [wholesalePrice, setWholesalePrice] = useState<number | ''>(initialProduct?.wholesale_price ?? '');
-  const [minSellingPrice, setMinSellingPrice] = useState<number | ''>(initialProduct?.min_selling_price ?? '');
-  const [defaultDiscount, setDefaultDiscount] = useState<number>(initialProduct?.default_discount ?? 0);
-  const [taxRate, setTaxRate] = useState<number>(initialProduct?.tax_rate ?? 0);
 
-  // Inventory
-  const [quantity, setQuantity] = useState<number>(initialProduct?.quantity ?? 10);
-  const [openingStock, setOpeningStock] = useState<number>(initialProduct?.opening_stock ?? 10);
+  // SECTION 4: Stock Information
+  const [openingStock, setOpeningStock] = useState<number | ''>(initialProduct?.opening_stock ?? 0);
   const [unit, setUnit] = useState(initialProduct?.unit || 'Pieces');
-  const [minStockLevel, setMinStockLevel] = useState<number>(initialProduct?.min_stock_level ?? 5);
-  const [reorderLevel, setReorderLevel] = useState<number>(initialProduct?.reorder_level ?? 10);
-  const [warehouseLocation, setWarehouseLocation] = useState(initialProduct?.warehouse_location || 'Central Store Colombo');
-  const [rackNumber, setRackNumber] = useState(initialProduct?.rack_number || 'R-01');
-  const [shelfNumber, setShelfNumber] = useState(initialProduct?.shelf_number || 'S-01');
-  const [stockTrackingEnabled, setStockTrackingEnabled] = useState(initialProduct?.stock_tracking_enabled ?? true);
+  const [lowStockAlert, setLowStockAlert] = useState<number | ''>(
+    initialProduct?.min_stock_level ?? 5
+  );
+  const [storageLocation, setStorageLocation] = useState(
+    initialProduct?.warehouse_location || initialProduct?.rack_number || ''
+  );
 
-  // Supplier
-  const [supplierName, setSupplierName] = useState(initialProduct?.supplier_name || '');
-  const [supplierCode, setSupplierCode] = useState(initialProduct?.supplier_code || '');
-  const [supplierPrice, setSupplierPrice] = useState<number | ''>(initialProduct?.supplier_price ?? '');
-  const [preferredSupplier, setPreferredSupplier] = useState(initialProduct?.preferred_supplier ?? false);
-  const [deliveryDays, setDeliveryDays] = useState<number | ''>(initialProduct?.estimated_delivery_days ?? '');
-
-  // Motorcycle Fitment & Additional Details
-  const [compatibleModels, setCompatibleModels] = useState(initialProduct?.compatible_models || '');
-  const [compatibleYears, setCompatibleYears] = useState(initialProduct?.compatible_years || '');
-  const [warrantyPeriod, setWarrantyPeriod] = useState(initialProduct?.warranty_period || '');
-  const [specifications, setSpecifications] = useState(initialProduct?.specifications || '');
-  const [internalNotes, setInternalNotes] = useState(initialProduct?.internal_notes || '');
-  const [isFeatured, setIsFeatured] = useState(initialProduct?.is_featured ?? false);
-
-  // Variations (if productType === 'variants')
-  const [variations, setVariations] = useState<ProductVariation[]>(() => {
-    if (initialProduct?.variations_json) {
-      try {
-        return JSON.parse(initialProduct.variations_json);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
-  // UI state
+  // Validation & UI State
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [showBarcodeChangeDialog, setShowBarcodeChangeDialog] = useState(false);
+  const [pendingActionType, setPendingActionType] = useState<'save' | 'save_and_add' | 'save_and_print'>('save');
 
-  // Mark form as dirty when values change
   const markDirty = () => {
     if (!isDirty) setIsDirty(true);
   };
 
-  // Calculations
+  // Profit Calculations (as specified: Profit Margin = (Profit / Selling Price) * 100)
   const cost = typeof costPrice === 'number' ? costPrice : 0;
   const retail = typeof sellingPrice === 'number' ? sellingPrice : 0;
-  const profitPerUnit = retail - cost;
-  const profitMarginPct = cost > 0 ? (profitPerUnit / cost) * 100 : 0;
-  const isBelowCost = retail > 0 && cost > 0 && retail < cost;
-  const isBelowMin =
-    typeof minSellingPrice === 'number' && minSellingPrice > 0 && retail > 0 && retail < minSellingPrice;
+  const wholesale = typeof wholesalePrice === 'number' ? wholesalePrice : null;
+  const profitPerUnit = retail > 0 && cost > 0 ? retail - cost : 0;
+  const profitMarginPct = retail > 0 && cost > 0 ? (profitPerUnit / retail) * 100 : 0;
+  const isLoss = retail > 0 && cost > 0 && retail < cost;
 
+  // SKU Regeneration
   const handleRegenerateSku = () => {
-    setCode(generateAutoSku(category, brand));
+    const newSku = generateAutoSku(category, brand || 'TL');
+    setCode(newSku);
     markDirty();
   };
 
+  // Barcode Auto-Generation
   const handleRegenerateBarcode = () => {
-    setBarcode(generateAutoBarcode());
+    const newBarcode = generateAutoBarcode();
+    setBarcode(newBarcode);
     markDirty();
   };
 
-  const handleAddVariation = () => {
-    const newVar: ProductVariation = {
-      id: Date.now().toString(),
-      name: `${name} (Var ${variations.length + 1})`,
-      attribute_name: 'Size',
-      attribute_value: 'Standard',
-      sku: `${code}-V${variations.length + 1}`,
-      barcode: generateAutoBarcode(),
-      cost_price: typeof costPrice === 'number' ? costPrice : 1000,
-      selling_price: typeof sellingPrice === 'number' ? sellingPrice : 1500,
-      quantity: 5,
-      min_stock_level: 2,
-      status: 'active',
-    };
-    setVariations((prev) => [...prev, newVar]);
-    markDirty();
+  // Focus Barcode field for USB scanner input
+  const handleActivateScanner = () => {
+    setIsScannerActive(true);
+    if (barcodeInputRef.current) {
+      barcodeInputRef.current.focus();
+      barcodeInputRef.current.select();
+    }
   };
 
-  const handleRemoveVariation = (id: string) => {
-    setVariations((prev) => prev.filter((v) => v.id !== id));
-    markDirty();
+  // Image Upload / Preview handler
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setErrors((prev) => ({ ...prev, image: 'Image size exceeds 2MB limit' }));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setImageUrl(event.target.result as string);
+          markDirty();
+          setErrors((prev) => {
+            const next = { ...prev };
+            delete next.image;
+            return next;
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
+  // Validate form
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!name.trim()) newErrors.name = 'Product name is required';
-    if (!code.trim()) newErrors.code = 'SKU / Product code is required';
-    if (!brand.trim()) newErrors.brand = 'Brand is required';
-    if (!category.trim()) newErrors.category = 'Category is required';
-    if (costPrice === '' || costPrice <= 0) newErrors.costPrice = 'Valid cost price (> 0) is required';
-    if (sellingPrice === '' || sellingPrice <= 0) newErrors.sellingPrice = 'Valid selling price (> 0) is required';
+    const errs: Record<string, string> = {};
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (!name.trim()) {
+      errs.name = 'Product name is required';
+    }
+
+    if (!code.trim()) {
+      errs.code = 'SKU is required';
+    }
+
+    if (!category.trim()) {
+      errs.category = 'Category selection is required';
+    }
+
+    if (costPrice === '' || costPrice === null || Number(costPrice) <= 0) {
+      errs.costPrice = 'Valid purchase cost price is required (greater than 0)';
+    }
+
+    if (sellingPrice === '' || sellingPrice === null || Number(sellingPrice) <= 0) {
+      errs.sellingPrice = 'Valid retail selling price is required (greater than 0)';
+    }
+
+    if (wholesalePrice !== '' && wholesalePrice !== null && Number(wholesalePrice) <= 0) {
+      errs.wholesalePrice = 'Wholesale price must be greater than 0 if specified';
+    }
+
+    if (openingStock === '' || openingStock === null || Number(openingStock) < 0) {
+      errs.openingStock = 'Opening stock is required (0 or greater)';
+    }
+
+    if (!unit.trim()) {
+      errs.unit = 'Unit of measurement is required';
+    }
+
+    if (barcode && barcode.trim().length < 3) {
+      errs.barcode = 'Barcode must be at least 3 characters if provided';
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
-  const handleFormSubmit = async (e: FormEvent, actionType: 'save' | 'save_and_add' | 'save_and_print') => {
+  const handleFormSubmit = async (
+    e: FormEvent,
+    actionType: 'save' | 'save_and_add' | 'save_and_print'
+  ) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    // Check if barcode changed on an existing product (Safety Check)
+    if (
+      isEditing &&
+      initialProduct?.barcode &&
+      barcode.trim() !== initialProduct.barcode.trim()
+    ) {
+      setPendingActionType(actionType);
+      setShowBarcodeChangeDialog(true);
+      return;
+    }
+
+    await executeSave(actionType);
+  };
+
+  const executeSave = async (actionType: 'save' | 'save_and_add' | 'save_and_print') => {
+    const cleanQty = openingStock === '' ? 0 : Number(openingStock);
+    const cleanMinStock = lowStockAlert === '' ? 5 : Number(lowStockAlert);
+
     const payload: ProductCreateInput = {
       name: name.trim(),
-      code: code.trim(),
-      barcode: barcode.trim() ? barcode.trim() : null,
-      barcode_type: barcodeType as BarcodeType,
-      category,
-      subcategory: subcategory.trim() || null,
-      brand,
-      product_type: productType,
-      status: status as ProductStatus,
+      code: code.trim().toUpperCase(),
+      barcode: barcode.trim() || null,
+      barcode_type: barcodeType,
+      category: category.trim(),
+      brand: brand.trim() || 'Unbranded',
+      product_type: initialProduct?.product_type || 'standard',
+      status: initialProduct?.status || 'active',
       description: description.trim() || null,
       image_url: imageUrl.trim() || null,
       cost_price: Number(costPrice),
       selling_price: Number(sellingPrice),
-      wholesale_price: wholesalePrice !== '' ? Number(wholesalePrice) : null,
-      min_selling_price: minSellingPrice !== '' ? Number(minSellingPrice) : null,
-      default_discount: Number(defaultDiscount) || 0,
-      tax_rate: Number(taxRate) || 0,
-      quantity: Number(quantity) || 0,
-      opening_stock: Number(openingStock) || 0,
-      unit,
-      min_stock_level: Number(minStockLevel) || 5,
-      reorder_level: Number(reorderLevel) || 10,
-      warehouse_location: warehouseLocation.trim() || null,
-      rack_number: rackNumber.trim() || null,
-      shelf_number: shelfNumber.trim() || null,
-      stock_tracking_enabled: stockTrackingEnabled,
-      supplier_name: supplierName.trim() || null,
-      supplier_code: supplierCode.trim() || null,
-      supplier_price: supplierPrice !== '' ? Number(supplierPrice) : null,
-      preferred_supplier: preferredSupplier,
-      estimated_delivery_days: deliveryDays !== '' ? Number(deliveryDays) : null,
-      compatible_models: compatibleModels.trim() || null,
-      compatible_years: compatibleYears.trim() || null,
-      warranty_period: warrantyPeriod.trim() || null,
-      specifications: specifications.trim() || null,
-      internal_notes: internalNotes.trim() || null,
-      is_featured: isFeatured,
-      variations_json: variations.length > 0 ? JSON.stringify(variations) : null,
+      wholesale_price: wholesale !== null && wholesale > 0 ? wholesale : null,
+      quantity: cleanQty,
+      opening_stock: cleanQty,
+      unit: unit.trim(),
+      min_stock_level: cleanMinStock,
+      reorder_level: cleanMinStock,
+      warehouse_location: storageLocation.trim() || null,
+      rack_number: storageLocation.trim() || null,
+      stock_tracking_enabled: true,
+      preferred_supplier: initialProduct?.preferred_supplier ?? false,
+      is_featured: initialProduct?.is_featured ?? false,
+      // Preserve existing advanced attributes if editing
+      compatible_models: initialProduct?.compatible_models || null,
+      variations_json: initialProduct?.variations_json || null,
+      supplier_name: initialProduct?.supplier_name || null,
+      supplier_code: initialProduct?.supplier_code || null,
+      supplier_price: initialProduct?.supplier_price || null,
     };
 
     await onSave(payload, actionType);
     setIsDirty(false);
+
+    if (actionType === 'save_and_add') {
+      // Reset form for next item while keeping same category/brand
+      setName('');
+      setCode(generateAutoSku(category, brand || 'TL'));
+      setBarcode(generateAutoBarcode());
+      setCostPrice('');
+      setSellingPrice('');
+      setWholesalePrice('');
+      setOpeningStock(0);
+      setImageUrl('');
+      setDescription('');
+      setErrors({});
+    }
   };
 
   const handleCancelClick = () => {
@@ -230,31 +271,37 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
-      {/* Top Breadcrumb & Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#292b31] pb-6">
+    <div className="space-y-6 animate-in fade-in duration-200 max-w-5xl mx-auto pb-12">
+      {/* Top Header & Breadcrumbs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#292b31] pb-5">
         <div>
-          <div className="flex items-center gap-2 text-xs text-[#9a9ca6] mb-1.5">
-            <button type="button" onClick={handleCancelClick} className="hover:text-white transition">
+          <div className="flex items-center gap-2 text-xs text-[#9a9ca6] mb-1">
+            <button
+              type="button"
+              onClick={handleCancelClick}
+              className="hover:text-white transition"
+            >
               Products
             </button>
             <span>/</span>
-            <span className="text-[#f0442f] font-medium">{isEditing ? 'Edit Product' : 'Add New Product'}</span>
+            <span className="text-[#f0442f] font-medium">
+              {isEditing ? 'Edit Spare Part' : 'Add New Spare Part'}
+            </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            {isEditing ? `Edit: ${initialProduct?.name}` : 'Create Motorcycle Spare Part'}
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">
+            {isEditing ? `Edit: ${initialProduct?.name}` : 'Add Product'}
           </h1>
-          <p className="text-xs sm:text-sm text-[#9a9ca6] mt-1">
-            Complete the sections below to register this spare part, generate barcodes, and establish stock tracking.
+          <p className="text-xs text-[#9a9ca6] mt-0.5">
+            Quick 4-step product registration for motorcycle parts and inventory.
           </p>
         </div>
 
-        {/* Top Cancel / Back button */}
+        {/* Top Action Buttons */}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleCancelClick}
-            className="px-4 py-2.5 rounded-xl border border-[#292b31] bg-[#1b1c22] text-sm font-medium text-[#f3f4f6] hover:bg-[#292b31] hover:text-white transition"
+            className="px-4 py-2.5 rounded-xl border border-[#292b31] bg-[#1b1c22] text-xs font-semibold text-[#f3f4f6] hover:bg-[#292b31] hover:text-white transition"
           >
             Cancel
           </button>
@@ -262,30 +309,43 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
             type="button"
             disabled={isLoading}
             onClick={(e) => handleFormSubmit(e, 'save')}
-            className="px-6 py-2.5 rounded-xl bg-[#f0442f] text-sm font-semibold text-white shadow-lg shadow-red-950/40 hover:bg-[#ff5534] transition active:scale-95 disabled:opacity-50"
+            className="px-5 py-2.5 rounded-xl bg-[#f0442f] text-xs font-semibold text-white shadow-lg shadow-red-950/40 hover:bg-[#ff5534] transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
           >
-            {isEditing ? 'Update Product' : 'Save Product'}
+            {isLoading ? (
+              <span>Saving...</span>
+            ) : (
+              <>
+                <span>💾</span>
+                <span>{isEditing ? 'Update Product' : 'Save Product'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      <form onSubmit={(e) => handleFormSubmit(e, 'save')} className="space-y-8">
-        {/* SECTION A: BASIC INFORMATION */}
+      <form onSubmit={(e) => handleFormSubmit(e, 'save')} className="space-y-6">
+        {/* ========================================================================= */}
+        {/* SECTION 1: PRODUCT INFORMATION */}
+        {/* ========================================================================= */}
         <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-6">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-              A
+          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#f0442f]/10 text-[#f0442f] font-bold text-xs">
+              1
             </span>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Basic Information</h2>
-              <p className="text-xs text-[#9a9ca6]">Product identity, classification, and visual media</p>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Product Information
+              </h2>
+              <p className="text-xs text-[#9a9ca6]">
+                Core identity of the motorcycle spare part
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Product Name */}
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* 1. Product Name */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
                 Product Name <span className="text-[#f0442f]">*</span>
               </label>
               <input
@@ -294,27 +354,30 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
                 onChange={(e) => {
                   setName(e.target.value);
                   markDirty();
+                  if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
                 }}
-                placeholder="e.g. Brembo Sintered Front Brake Pads"
-                className={`w-full bg-[#121316] border rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none ${
-                  errors.name ? 'border-rose-500' : 'border-[#292b31] focus:border-[#f0442f]'
+                placeholder="e.g. Brembo Sintered Front Brake Pads, Motul 7100 4T 10W-40 1L..."
+                className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f] ${
+                  errors.name ? 'border-rose-500' : 'border-[#292b31]'
                 }`}
               />
-              {errors.name && <p className="text-xs text-rose-400 mt-1">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.name}</p>
+              )}
             </div>
 
-            {/* SKU with Auto-generate */}
+            {/* 2. SKU / Code */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-[#f3f4f6]">
                   SKU / Product Code <span className="text-[#f0442f]">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={handleRegenerateSku}
-                  className="text-xs font-medium text-[#f0442f] hover:underline"
+                  className="text-[11px] text-[#f0442f] hover:underline font-medium"
                 >
-                  Regenerate
+                  ↻ Auto-generate
                 </button>
               </div>
               <input
@@ -323,18 +386,21 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
                 onChange={(e) => {
                   setCode(e.target.value);
                   markDirty();
+                  if (errors.code) setErrors((prev) => ({ ...prev, code: '' }));
                 }}
                 placeholder="e.g. BRM-BP-001"
-                className={`w-full bg-[#121316] border font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none ${
-                  errors.code ? 'border-rose-500' : 'border-[#292b31] focus:border-[#f0442f]'
+                className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 text-sm font-mono text-[#f3f4f6] focus:outline-none focus:border-[#f0442f] ${
+                  errors.code ? 'border-rose-500' : 'border-[#292b31]'
                 }`}
               />
-              {errors.code && <p className="text-xs text-rose-400 mt-1">{errors.code}</p>}
+              {errors.code && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.code}</p>
+              )}
             </div>
 
-            {/* Category */}
+            {/* 3. Category */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
                 Category <span className="text-[#f0442f]">*</span>
               </label>
               <select
@@ -342,8 +408,11 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
                 onChange={(e) => {
                   setCategory(e.target.value);
                   markDirty();
+                  if (errors.category) setErrors((prev) => ({ ...prev, category: '' }));
                 }}
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+                className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f] ${
+                  errors.category ? 'border-rose-500' : 'border-[#292b31]'
+                }`}
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.name}>
@@ -351,27 +420,15 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
                   </option>
                 ))}
               </select>
+              {errors.category && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.category}</p>
+              )}
             </div>
 
-            {/* Subcategory */}
+            {/* 4. Brand */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Subcategory</label>
-              <input
-                type="text"
-                value={subcategory}
-                onChange={(e) => {
-                  setSubcategory(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. Brake Pads, Rotors"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Brand */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">
-                Brand <span className="text-[#f0442f]">*</span>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Brand <span className="text-[#9a9ca6] font-normal">(Optional)</span>
               </label>
               <select
                 value={brand}
@@ -379,8 +436,9 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
                   setBrand(e.target.value);
                   markDirty();
                 }}
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-2.5 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
               >
+                <option value="">Unbranded / Generic</option>
                 {brands.map((b) => (
                   <option key={b.id} value={b.name}>
                     {b.name}
@@ -389,375 +447,381 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
               </select>
             </div>
 
-            {/* Product Type */}
+            {/* 5. Product Image */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Product Type</label>
-              <select
-                value={productType}
-                onChange={(e) => {
-                  setProductType(e.target.value as ProductType);
-                  markDirty();
-                }}
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              >
-                <option value="standard">Standard Product</option>
-                <option value="variants">Product with Variants (Sizes, Volumes)</option>
-                <option value="service">Service / Labour</option>
-              </select>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Product Image <span className="text-[#9a9ca6] font-normal">(Optional)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                {imageUrl ? (
+                  <div className="relative w-11 h-11 rounded-xl bg-[#22242b] border border-[#292b31] overflow-hidden flex-shrink-0 group">
+                    <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageUrl('');
+                        markDirty();
+                      }}
+                      className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold"
+                      title="Remove image"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-11 h-11 rounded-xl bg-[#121316] border border-[#292b31] border-dashed flex items-center justify-center text-xs text-[#6f727d] flex-shrink-0">
+                    📷
+                  </div>
+                )}
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => {
+                      setImageUrl(e.target.value);
+                      markDirty();
+                    }}
+                    placeholder="Paste image link or upload file..."
+                    className="flex-1 bg-[#121316] border border-[#292b31] rounded-xl px-3 py-2 text-xs text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
+                  />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-2 rounded-xl bg-[#22242b] border border-[#292b31] text-xs font-medium text-[#f3f4f6] hover:bg-[#2b2d35] transition"
+                  >
+                    Browse
+                  </button>
+                </div>
+              </div>
+              {errors.image && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.image}</p>
+              )}
             </div>
 
-            {/* Status */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Product Status</label>
-              <select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value as ProductStatus);
-                  markDirty();
-                }}
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              >
-                <option value="active">Active (Available for POS)</option>
-                <option value="inactive">Inactive</option>
-                <option value="archived">Archived</option>
-              </select>
-            </div>
-
-            {/* Image URL with preview */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Image URL</label>
-              <input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => {
-                  setImageUrl(e.target.value);
-                  markDirty();
-                }}
-                placeholder="https://... image link"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Description */}
-            <div className="lg:col-span-3">
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Product Description</label>
+            {/* 6. Description */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Description <span className="text-[#9a9ca6] font-normal">(Optional)</span>
+              </label>
               <textarea
-                rows={3}
+                rows={2}
                 value={description}
                 onChange={(e) => {
                   setDescription(e.target.value);
                   markDirty();
                 }}
-                placeholder="Enter technical specifications, friction grade, manufacturer notes..."
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
+                placeholder="Short technical description or notes..."
+                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-2.5 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
               />
             </div>
           </div>
         </div>
 
-        {/* SECTION B: BARCODE MANAGEMENT */}
+        {/* ========================================================================= */}
+        {/* SECTION 2: BARCODE */}
+        {/* ========================================================================= */}
         <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-6">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-              B
+          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#f0442f]/10 text-[#f0442f] font-bold text-xs">
+              2
             </span>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Barcode Management</h2>
-              <p className="text-xs text-[#9a9ca6]">Scannable barcode assignment, symbology, and real-time preview</p>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Barcode Management
+              </h2>
+              <p className="text-xs text-[#9a9ca6]">
+                Code 128 symbology, scanner compatibility, and real scannable preview
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-[#f3f4f6]">Barcode Value</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-[#f3f4f6]">
+                    Barcode Value <span className="text-[#9a9ca6] font-normal">(Code 128)</span>
+                  </label>
                   <button
                     type="button"
                     onClick={handleRegenerateBarcode}
-                    className="text-xs font-medium text-[#f0442f] hover:underline"
+                    className="text-[11px] text-[#f0442f] hover:underline font-medium"
                   >
-                    Auto-Generate New Barcode
+                    ↻ Generate New Barcode
                   </button>
                 </div>
-                <input
-                  type="text"
-                  value={barcode}
-                  onChange={(e) => {
-                    setBarcode(e.target.value);
-                    markDirty();
-                  }}
-                  placeholder="Enter or scan manufacturer barcode..."
-                  className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Barcode Symbology</label>
-                  <select
-                    value={barcodeType}
+                <div className="relative">
+                  <input
+                    ref={barcodeInputRef}
+                    type="text"
+                    value={barcode}
                     onChange={(e) => {
-                      setBarcodeType(e.target.value as BarcodeType);
+                      setBarcode(e.target.value);
                       markDirty();
+                      if (errors.barcode) setErrors((prev) => ({ ...prev, barcode: '' }));
                     }}
-                    className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-                  >
-                    <option value="CODE128">Code 128 (Universal)</option>
-                    <option value="EAN13">EAN-13 (Retail Standard)</option>
-                    <option value="UPCA">UPC-A</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Quick Action</label>
+                    onBlur={() => setIsScannerActive(false)}
+                    placeholder="Enter or scan manufacturer barcode..."
+                    className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 font-mono text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f] ${
+                      isScannerActive ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-[#292b31]'
+                    }`}
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      setBarcode(code);
-                      markDirty();
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-[#292b31] bg-[#22242b] text-xs font-medium text-[#f3f4f6] hover:bg-[#2b2d35] transition"
+                    onClick={handleActivateScanner}
+                    title="Click then scan with USB barcode scanner"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#22242b] border border-[#292b31] text-[11px] font-semibold text-white hover:bg-[#2b2d35]"
                   >
-                    Use SKU as Barcode
+                    {isScannerActive ? 'Listening...' : '📷 Scan'}
                   </button>
                 </div>
+                {errors.barcode && (
+                  <p className="text-rose-400 text-xs mt-1 font-medium">{errors.barcode}</p>
+                )}
+                <p className="text-[11px] text-[#6f727d] mt-1.5">
+                  Compatible with standard USB and wireless handheld barcode scanners.
+                </p>
+              </div>
+
+              {/* Quick shortcut to match SKU */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBarcode(code.trim());
+                    markDirty();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-[#22242b] border border-[#292b31] text-xs text-[#9a9ca6] hover:text-white transition"
+                >
+                  Use SKU as Barcode Value
+                </button>
               </div>
             </div>
 
-            {/* Real Barcode Preview Box */}
-            <div className="p-5 rounded-2xl bg-[#121316] border border-[#292b31] flex flex-col items-center justify-center text-center">
-              <span className="text-xs uppercase tracking-wider text-[#9a9ca6] mb-3 font-semibold">
-                Real Scannable Barcode Label ({barcodeType})
+            {/* Real Barcode Preview Card */}
+            <div className="p-4 rounded-xl bg-[#121316] border border-[#292b31] flex flex-col items-center justify-center text-center">
+              <span className="text-[11px] uppercase tracking-wider text-[#9a9ca6] mb-2 font-semibold">
+                Real Scannable Barcode Preview
               </span>
               {barcode && barcode.trim() ? (
-                <div className="my-2 p-2 bg-[#17181c] rounded-xl border border-[#292b31] inline-block shadow-md">
+                <div className="my-1">
                   <BarcodeBadge
                     value={barcode.trim()}
-                    size="large"
+                    size="medium"
                     showNumber={true}
                   />
                 </div>
               ) : (
-                <div className="h-24 flex items-center justify-center text-xs text-[#6f727d]">
+                <div className="h-16 flex items-center justify-center text-xs text-[#6f727d]">
                   Enter barcode value to generate preview
                 </div>
               )}
-              <p className="text-[11px] text-[#9a9ca6] mt-3">
-                Scannable by standard USB & wireless 1D/2D optical barcode scanners.
+              <span className="text-[10px] text-[#6f727d] mt-2">
+                Prints on 50×30mm thermal rolls and standard label sheets
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 3: PRICING */}
+        {/* ========================================================================= */}
+        <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
+          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#f0442f]/10 text-[#f0442f] font-bold text-xs">
+              3
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Pricing & Profit Margin
+              </h2>
+              <p className="text-xs text-[#9a9ca6]">
+                Automated profit and margin calculation per unit
               </p>
             </div>
           </div>
-        </div>
 
-        {/* SECTION C: PRICING INFORMATION */}
-        <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-6">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-              C
-            </span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* 1. Cost Price */}
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Pricing & Margins</h2>
-              <p className="text-xs text-[#9a9ca6]">Cost, retail, wholesale tiers, and margin preview</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Purchase Price */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">
-                Cost Price (LKR / Rs.) <span className="text-[#f0442f]">*</span>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Cost Price (Rs.) <span className="text-[#f0442f]">*</span>
               </label>
               <input
                 type="number"
-                step="0.01"
                 min="0"
+                step="0.01"
                 value={costPrice}
                 onChange={(e) => {
-                  setCostPrice(e.target.value === '' ? '' : parseFloat(e.target.value));
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setCostPrice(val);
                   markDirty();
+                  if (errors.costPrice) setErrors((prev) => ({ ...prev, costPrice: '' }));
                 }}
-                className={`w-full bg-[#121316] border font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none ${
-                  errors.costPrice ? 'border-rose-500' : 'border-[#292b31] focus:border-[#f0442f]'
+                placeholder="0.00"
+                className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 font-mono text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f] ${
+                  errors.costPrice ? 'border-rose-500' : 'border-[#292b31]'
                 }`}
               />
-              {errors.costPrice && <p className="text-xs text-rose-400 mt-1">{errors.costPrice}</p>}
+              {errors.costPrice && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.costPrice}</p>
+              )}
             </div>
 
-            {/* Retail Selling Price */}
+            {/* 2. Retail Selling Price */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">
-                Retail Selling Price (Rs.) <span className="text-[#f0442f]">*</span>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Selling Price (Rs.) <span className="text-[#f0442f]">*</span>
               </label>
               <input
                 type="number"
-                step="0.01"
                 min="0"
+                step="0.01"
                 value={sellingPrice}
                 onChange={(e) => {
-                  setSellingPrice(e.target.value === '' ? '' : parseFloat(e.target.value));
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setSellingPrice(val);
                   markDirty();
+                  if (errors.sellingPrice) setErrors((prev) => ({ ...prev, sellingPrice: '' }));
                 }}
-                className={`w-full bg-[#121316] border font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none ${
-                  errors.sellingPrice ? 'border-rose-500' : 'border-[#292b31] focus:border-[#f0442f]'
+                placeholder="0.00"
+                className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 font-mono text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f] ${
+                  errors.sellingPrice ? 'border-rose-500' : 'border-[#292b31]'
                 }`}
               />
-              {errors.sellingPrice && <p className="text-xs text-rose-400 mt-1">{errors.sellingPrice}</p>}
+              {errors.sellingPrice && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.sellingPrice}</p>
+              )}
             </div>
 
-            {/* Wholesale Price */}
+            {/* 3. Wholesale Price */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Wholesale Price (Rs.)</label>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Wholesale Price (Rs.) <span className="text-[#9a9ca6] font-normal">(Optional)</span>
+              </label>
               <input
                 type="number"
-                step="0.01"
                 min="0"
+                step="0.01"
                 value={wholesalePrice}
                 onChange={(e) => {
-                  setWholesalePrice(e.target.value === '' ? '' : parseFloat(e.target.value));
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setWholesalePrice(val);
                   markDirty();
                 }}
-                placeholder="Optional bulk tier"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Minimum Selling Price */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Min Selling Price Floor (Rs.)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={minSellingPrice}
-                onChange={(e) => {
-                  setMinSellingPrice(e.target.value === '' ? '' : parseFloat(e.target.value));
-                  markDirty();
-                }}
-                placeholder="Bottom price threshold"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Default Discount */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Default Discount (%)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={defaultDiscount}
-                onChange={(e) => {
-                  setDefaultDiscount(parseFloat(e.target.value) || 0);
-                  markDirty();
-                }}
-                placeholder="0"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Tax Rate */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Tax Rate / VAT (%)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={taxRate}
-                onChange={(e) => {
-                  setTaxRate(parseFloat(e.target.value) || 0);
-                  markDirty();
-                }}
-                placeholder="0"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+                placeholder="0.00"
+                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-2.5 font-mono text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
               />
             </div>
           </div>
 
-          {/* Real-time Profit Preview Box */}
-          <div className="mt-6 p-4 rounded-xl bg-[#121316] border border-[#292b31] flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-6">
-              <div>
-                <span className="text-[11px] text-[#9a9ca6] uppercase">Profit per Unit</span>
-                <div
-                  className={`text-lg font-bold font-mono ${
-                    profitPerUnit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  Rs. {profitPerUnit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[11px] text-[#9a9ca6] uppercase">Profit Margin</span>
-                <div
-                  className={`text-lg font-bold font-mono ${
-                    profitMarginPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  {profitMarginPct >= 0 ? '+' : ''}
-                  {profitMarginPct.toFixed(1)}%
-                </div>
-              </div>
+          {/* Automatic Profit & Margin Preview Bar */}
+          <div className="mt-5 p-4 rounded-xl bg-[#121316] border border-[#292b31] grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <span className="text-[11px] text-[#9a9ca6] block">Profit per Unit</span>
+              <strong
+                className={`text-base font-mono font-bold ${
+                  isLoss ? 'text-rose-400' : 'text-emerald-400'
+                }`}
+              >
+                Rs. {profitPerUnit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </strong>
             </div>
 
-            {/* Pricing Warnings */}
-            {isBelowCost && (
-              <div className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5">
-                <span>⚠️</span>
-                <span>Warning: Selling price is below cost price!</span>
-              </div>
-            )}
-            {isBelowMin && (
-              <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium flex items-center gap-1.5">
-                <span>⚠️</span>
-                <span>Warning: Price is lower than minimum configured floor!</span>
-              </div>
-            )}
+            <div>
+              <span className="text-[11px] text-[#9a9ca6] block">Profit Margin</span>
+              <strong
+                className={`text-base font-mono font-bold ${
+                  isLoss ? 'text-rose-400' : 'text-emerald-400'
+                }`}
+              >
+                {retail > 0 ? `${profitMarginPct.toFixed(1)}%` : '0.0%'}
+              </strong>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1 flex items-center">
+              {isLoss ? (
+                <span className="inline-flex items-center gap-1 text-xs text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20">
+                  ⚠️ Selling below cost price
+                </span>
+              ) : retail > 0 && cost > 0 ? (
+                <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                  ✓ Healthy profit margin
+                </span>
+              ) : (
+                <span className="text-xs text-[#6f727d]">
+                  Enter cost and selling prices to preview margins
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* SECTION D: INVENTORY INFORMATION */}
+        {/* ========================================================================= */}
+        {/* SECTION 4: STOCK INFORMATION */}
+        {/* ========================================================================= */}
         <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-6">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-              D
+          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#f0442f]/10 text-[#f0442f] font-bold text-xs">
+              4
             </span>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Inventory & Storage Location</h2>
-              <p className="text-xs text-[#9a9ca6]">Opening stock, threshold triggers, and warehouse location</p>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Stock Information
+              </h2>
+              <p className="text-xs text-[#9a9ca6]">
+                Inventory tracking, unit type, threshold alerts, and bin storage
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Opening Stock / Available Stock */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+            {/* 1. Opening Stock */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Opening Stock Quantity</label>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Opening Stock <span className="text-[#f0442f]">*</span>
+              </label>
               <input
                 type="number"
                 min="0"
-                value={quantity}
+                value={openingStock}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value, 10) || 0;
-                  setQuantity(val);
+                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
                   setOpeningStock(val);
                   markDirty();
+                  if (errors.openingStock) setErrors((prev) => ({ ...prev, openingStock: '' }));
                 }}
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+                placeholder="0"
+                className={`w-full bg-[#121316] border rounded-xl px-4 py-2.5 font-mono text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f] ${
+                  errors.openingStock ? 'border-rose-500' : 'border-[#292b31]'
+                }`}
               />
+              {errors.openingStock && (
+                <p className="text-rose-400 text-xs mt-1 font-medium">{errors.openingStock}</p>
+              )}
             </div>
 
-            {/* Unit */}
+            {/* 2. Unit */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Unit of Measurement</label>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Unit of Measure <span className="text-[#f0442f]">*</span>
+              </label>
               <select
                 value={unit}
                 onChange={(e) => {
                   setUnit(e.target.value);
                   markDirty();
                 }}
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-2.5 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
               >
-                {UNITS.map((u) => (
+                {COMMON_UNITS.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -765,494 +829,109 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
               </select>
             </div>
 
-            {/* Min Stock */}
+            {/* 3. Low Stock Alert */}
             <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Low Stock Alert Level</label>
-              <input
-                type="number"
-                min="0"
-                value={minStockLevel}
-                onChange={(e) => {
-                  setMinStockLevel(parseInt(e.target.value, 10) || 0);
-                  markDirty();
-                }}
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Reorder Level */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Reorder Level</label>
-              <input
-                type="number"
-                min="0"
-                value={reorderLevel}
-                onChange={(e) => {
-                  setReorderLevel(parseInt(e.target.value, 10) || 0);
-                  markDirty();
-                }}
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Warehouse Location */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Warehouse / Branch</label>
-              <input
-                type="text"
-                value={warehouseLocation}
-                onChange={(e) => {
-                  setWarehouseLocation(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. Central Store Colombo"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Rack Number */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Rack Number</label>
-              <input
-                type="text"
-                value={rackNumber}
-                onChange={(e) => {
-                  setRackNumber(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. R-04"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Shelf Number */}
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Shelf Number</label>
-              <input
-                type="text"
-                value={shelfNumber}
-                onChange={(e) => {
-                  setShelfNumber(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. S-02"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            {/* Tracking Toggle */}
-            <div className="flex items-center gap-3 pt-6">
-              <input
-                type="checkbox"
-                id="stockTrackingToggle"
-                checked={stockTrackingEnabled}
-                onChange={(e) => {
-                  setStockTrackingEnabled(e.target.checked);
-                  markDirty();
-                }}
-                className="w-4 h-4 rounded text-[#f0442f] bg-[#121316] border-[#292b31] focus:ring-0 cursor-pointer"
-              />
-              <label htmlFor="stockTrackingToggle" className="text-xs font-semibold text-[#f3f4f6] cursor-pointer">
-                Enable Active Stock Movement Tracking
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Low Stock Alert <span className="text-[#9a9ca6] font-normal">(Optional)</span>
               </label>
+              <input
+                type="number"
+                min="1"
+                value={lowStockAlert}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                  setLowStockAlert(val);
+                  markDirty();
+                }}
+                placeholder="e.g. 5"
+                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-2.5 font-mono text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+              />
+              <span className="text-[10px] text-[#6f727d] mt-1 block">
+                Triggers warning status badge
+              </span>
+            </div>
+
+            {/* 4. Storage Location */}
+            <div>
+              <label className="block text-xs font-semibold text-[#f3f4f6] mb-1.5">
+                Storage Location <span className="text-[#9a9ca6] font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={storageLocation}
+                onChange={(e) => {
+                  setStorageLocation(e.target.value);
+                  markDirty();
+                }}
+                placeholder="e.g. Shelf A1 or Rack B2"
+                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-2.5 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
+              />
+              <span className="text-[10px] text-[#6f727d] mt-1 block">
+                Warehouse rack, bin, or shelf
+              </span>
             </div>
           </div>
         </div>
 
-        {/* SECTION E: SUPPLIER INFORMATION */}
-        <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-6">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-              E
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Supplier Information</h2>
-              <p className="text-xs text-[#9a9ca6]">Vendor details, supplier part reference, and delivery estimate</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Supplier Name</label>
-              <input
-                type="text"
-                value={supplierName}
-                onChange={(e) => {
-                  setSupplierName(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. Associated Motorways Ltd"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Supplier Product Code</label>
-              <input
-                type="text"
-                value={supplierCode}
-                onChange={(e) => {
-                  setSupplierCode(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. SUP-YAM-88"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Supplier Contract Price (Rs.)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={supplierPrice}
-                onChange={(e) => {
-                  setSupplierPrice(e.target.value === '' ? '' : parseFloat(e.target.value));
-                  markDirty();
-                }}
-                placeholder="Contract price"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Est. Delivery Lead Time (Days)</label>
-              <input
-                type="number"
-                min="0"
-                value={deliveryDays}
-                onChange={(e) => {
-                  setDeliveryDays(e.target.value === '' ? '' : parseInt(e.target.value, 10));
-                  markDirty();
-                }}
-                placeholder="e.g. 3"
-                className="w-full bg-[#121316] border border-[#292b31] font-mono rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div className="sm:col-span-2 lg:col-span-4 flex items-center gap-3 pt-2">
-              <input
-                type="checkbox"
-                id="preferredSupplierToggle"
-                checked={preferredSupplier}
-                onChange={(e) => {
-                  setPreferredSupplier(e.target.checked);
-                  markDirty();
-                }}
-                className="w-4 h-4 rounded text-[#f0442f] bg-[#121316] border-[#292b31] focus:ring-0 cursor-pointer"
-              />
-              <label htmlFor="preferredSupplierToggle" className="text-xs font-semibold text-[#f3f4f6] cursor-pointer">
-                Mark as Preferred Primary Supplier for this part
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION F: MOTORCYCLE FITMENT & ADDITIONAL DETAILS */}
-        <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-[#292b31] pb-4 mb-6">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-              F
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Motorcycle Fitment & Details</h2>
-              <p className="text-xs text-[#9a9ca6]">Compatible bike models, years, warranty, and specifications</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Compatible Models */}
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">
-                Compatible Motorcycle Models <span className="text-[#f0442f]">(Searchable Attribute)</span>
-              </label>
-              <input
-                type="text"
-                value={compatibleModels}
-                onChange={(e) => {
-                  setCompatibleModels(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. Honda Dio 110, Honda Activa, Yamaha R15 V3, KTM Duke 390"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] placeholder-[#6f727d] focus:outline-none focus:border-[#f0442f]"
-              />
-              <p className="text-[11px] text-[#6f727d] mt-1">
-                Enter comma-separated models so staff can search compatibility instantly during billing.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Compatible Model Years</label>
-              <input
-                type="text"
-                value={compatibleYears}
-                onChange={(e) => {
-                  setCompatibleYears(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. 2016-2024"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Warranty Period</label>
-              <input
-                type="text"
-                value={warrantyPeriod}
-                onChange={(e) => {
-                  setWarrantyPeriod(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. 6 Months / 5,000 km"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Technical Specifications</label>
-              <input
-                type="text"
-                value={specifications}
-                onChange={(e) => {
-                  setSpecifications(e.target.value);
-                  markDirty();
-                }}
-                placeholder="e.g. Thread: 10mm, Reach: 19mm, 120 Links"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#f3f4f6] mb-2">Internal Staff Notes</label>
-              <input
-                type="text"
-                value={internalNotes}
-                onChange={(e) => {
-                  setInternalNotes(e.target.value);
-                  markDirty();
-                }}
-                placeholder="Private store notes (not visible on receipts)"
-                className="w-full bg-[#121316] border border-[#292b31] rounded-xl px-4 py-3 text-sm text-[#f3f4f6] focus:outline-none focus:border-[#f0442f]"
-              />
-            </div>
-
-            <div className="md:col-span-2 flex items-center gap-3 pt-2">
-              <input
-                type="checkbox"
-                id="isFeaturedToggle"
-                checked={isFeatured}
-                onChange={(e) => {
-                  setIsFeatured(e.target.checked);
-                  markDirty();
-                }}
-                className="w-4 h-4 rounded text-[#f0442f] bg-[#121316] border-[#292b31] focus:ring-0 cursor-pointer"
-              />
-              <label htmlFor="isFeaturedToggle" className="text-xs font-semibold text-[#f3f4f6] cursor-pointer">
-                Mark as Featured / Fast-Moving Hero Product (Showcase on POS landing)
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION F: PRODUCT VARIATIONS (only if variants selected) */}
-        {productType === 'variants' && (
-          <div className="rounded-2xl border border-[#292b31] bg-[#17181c] p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#292b31] pb-4 mb-6">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#f0442f]/10 text-[#f0442f] font-bold text-sm">
-                  F
-                </span>
-                <div>
-                  <h2 className="text-lg font-bold text-white tracking-tight">Product Variations</h2>
-                  <p className="text-xs text-[#9a9ca6]">Independent SKU, Barcode, Pricing, and Stock per variant</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleAddVariation}
-                className="px-3.5 py-2 rounded-xl bg-[#22242b] border border-[#292b31] text-xs font-semibold text-white hover:bg-[#2b2d35] transition flex items-center gap-1.5"
-              >
-                + Add Variant
-              </button>
-            </div>
-
-            {variations.length === 0 ? (
-              <div className="p-8 text-center border border-dashed border-[#292b31] rounded-xl text-xs text-[#9a9ca6]">
-                No variations configured yet. Click "+ Add Variant" to configure sizes (e.g. 500ml, 1L) or lengths.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {variations.map((v, idx) => (
-                  <div key={v.id} className="p-4 rounded-xl bg-[#121316] border border-[#292b31] grid grid-cols-2 md:grid-cols-6 gap-3 items-center">
-                    <div>
-                      <label className="text-[10px] text-[#9a9ca6]">Attribute (e.g. Size)</label>
-                      <input
-                        type="text"
-                        value={v.attribute_value}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setVariations((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, attribute_value: val } : item))
-                          );
-                          markDirty();
-                        }}
-                        className="w-full bg-[#17181c] border border-[#292b31] rounded-lg px-2.5 py-1.5 text-xs text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-[#9a9ca6]">Variant SKU</label>
-                      <input
-                        type="text"
-                        value={v.sku}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setVariations((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, sku: val } : item))
-                          );
-                          markDirty();
-                        }}
-                        className="w-full bg-[#17181c] border border-[#292b31] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-[#9a9ca6]">Barcode</label>
-                      <input
-                        type="text"
-                        value={v.barcode}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setVariations((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, barcode: val } : item))
-                          );
-                          markDirty();
-                        }}
-                        className="w-full bg-[#17181c] border border-[#292b31] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-[#9a9ca6]">Cost (Rs.)</label>
-                      <input
-                        type="number"
-                        value={v.cost_price}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          setVariations((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, cost_price: val } : item))
-                          );
-                          markDirty();
-                        }}
-                        className="w-full bg-[#17181c] border border-[#292b31] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-[#9a9ca6]">Retail (Rs.)</label>
-                      <input
-                        type="number"
-                        value={v.selling_price}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          setVariations((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, selling_price: val } : item))
-                          );
-                          markDirty();
-                        }}
-                        className="w-full bg-[#17181c] border border-[#292b31] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 pt-3">
-                      <div>
-                        <label className="text-[10px] text-[#9a9ca6]">Stock</label>
-                        <input
-                          type="number"
-                          value={v.quantity}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10) || 0;
-                            setVariations((prev) =>
-                              prev.map((item, i) => (i === idx ? { ...item, quantity: val } : item))
-                            );
-                            markDirty();
-                          }}
-                          className="w-16 bg-[#17181c] border border-[#292b31] rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVariation(v.id)}
-                        className="text-xs text-rose-400 hover:text-rose-300 p-1"
-                        title="Delete variant"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* BOTTOM FORM ACTIONS */}
-        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 p-4 sm:p-6 bg-[#17181c]/95 border-t border-[#292b31] backdrop-blur-md flex flex-wrap items-center justify-between gap-4 rounded-b-2xl shadow-2xl">
+        {/* ========================================================================= */}
+        {/* BOTTOM ACTION BAR */}
+        {/* ========================================================================= */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#292b31]">
           <button
             type="button"
             onClick={handleCancelClick}
-            className="px-5 py-3 rounded-xl border border-[#292b31] bg-[#22242b] text-sm font-medium text-[#f3f4f6] hover:bg-[#292b31] hover:text-white transition"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-[#292b31] bg-[#17181c] text-xs font-semibold text-[#f3f4f6] hover:bg-[#22242b] transition"
           >
             Cancel
           </button>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {!isEditing && (
-              <>
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={(e) => handleFormSubmit(e, 'save_and_add')}
-                  className="px-5 py-3 rounded-xl border border-[#292b31] bg-[#1b1c22] text-sm font-semibold text-white hover:bg-[#292b31] transition disabled:opacity-50"
-                >
-                  Save & Add Another
-                </button>
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={(e) => handleFormSubmit(e, 'save_and_print')}
-                  className="px-5 py-3 rounded-xl border border-[#f0442f]/40 bg-[#f0442f]/10 text-sm font-semibold text-[#f0442f] hover:bg-[#f0442f]/20 transition disabled:opacity-50"
-                >
-                  Save & Print Barcode
-                </button>
-              </>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={(e) => handleFormSubmit(e, 'save_and_add')}
+                className="px-4 py-2.5 rounded-xl border border-[#292b31] bg-[#1b1c22] text-xs font-semibold text-white hover:bg-[#292b31] transition active:scale-95 disabled:opacity-50"
+              >
+                Save & Add Another
+              </button>
             )}
 
             <button
-              type="submit"
+              type="button"
               disabled={isLoading}
-              className="px-7 py-3 rounded-xl bg-[#f0442f] text-sm font-bold text-white shadow-xl shadow-red-950/40 hover:bg-[#ff5534] transition active:scale-95 disabled:opacity-50 flex items-center gap-2"
+              onClick={(e) => handleFormSubmit(e, 'save_and_print')}
+              className="px-4 py-2.5 rounded-xl border border-[#f0442f]/30 bg-[#f0442f]/10 text-xs font-semibold text-[#f0442f] hover:bg-[#f0442f]/20 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
-              {isLoading && (
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
+              <span>🏷️</span>
+              <span>Save & Print Barcode</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={(e) => handleFormSubmit(e, 'save')}
+              className="px-6 py-2.5 rounded-xl bg-[#f0442f] text-xs font-semibold text-white shadow-lg shadow-red-950/40 hover:bg-[#ff5534] transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {isLoading ? (
+                <span>Saving...</span>
+              ) : (
+                <>
+                  <span>✓</span>
+                  <span>{isEditing ? 'Update Product' : 'Save Product'}</span>
+                </>
               )}
-              <span>{isEditing ? 'Update Product' : 'Save Product'}</span>
             </button>
           </div>
         </div>
       </form>
 
-      {/* Discard Confirmation Modal */}
+      {/* Discard Changes Dialog */}
       <ConfirmDialog
         isOpen={showDiscardDialog}
-        title="Discard Product Changes?"
-        message="You have unsaved changes on this product form. Are you sure you want to leave without saving?"
-        confirmLabel="Discard Changes"
+        title="Discard Unsaved Changes?"
+        message="You have unsaved changes in this form. Are you sure you want to discard your changes and leave?"
+        confirmLabel="Discard & Leave"
         cancelLabel="Continue Editing"
         isDestructive={true}
         onConfirm={() => {
@@ -1262,7 +941,26 @@ export const ProductFormView: FC<ProductFormViewProps> = ({
         }}
         onCancel={() => setShowDiscardDialog(false)}
       />
+
+      {/* Barcode Change Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showBarcodeChangeDialog}
+        title="Change Existing Barcode?"
+        message={`This product is currently assigned barcode "${initialProduct?.barcode}". Changing it to "${barcode.trim()}" may invalidate existing printed product labels in your store. Are you sure you want to proceed?`}
+        confirmLabel="Update Barcode"
+        cancelLabel="Keep Original"
+        isDestructive={false}
+        onConfirm={async () => {
+          setShowBarcodeChangeDialog(false);
+          await executeSave(pendingActionType);
+        }}
+        onCancel={() => {
+          setShowBarcodeChangeDialog(false);
+          if (initialProduct?.barcode) {
+            setBarcode(initialProduct.barcode);
+          }
+        }}
+      />
     </div>
   );
 };
-

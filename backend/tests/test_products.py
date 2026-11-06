@@ -56,6 +56,8 @@ def test_create_and_get_product(client: TestClient):
     assert data["description"] == payload["description"]
     assert data["quantity"] == payload["quantity"]
     assert "id" in data
+    assert data.get("barcode") is not None
+    assert len(data["barcode"]) >= 12
 
     prod_id = data["id"]
     get_res = client.get(f"/api/v1/products/{prod_id}")

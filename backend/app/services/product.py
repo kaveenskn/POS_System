@@ -1,5 +1,7 @@
 import csv
 import io
+import random
+import time
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -77,6 +79,19 @@ class ProductService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found for scanned barcode")
         return ProductResponse.model_validate(product)
 
+    def _generate_unique_barcode(self) -> str:
+        """Generates a guaranteed unique EAN/Code-128 compatible 13-digit barcode."""
+        for _ in range(50):
+            prefix = "200"
+            random_digits = "".join(str(random.randint(0, 9)) for _ in range(9))
+            code = prefix + random_digits
+            sum_val = sum(int(code[i]) if i % 2 == 0 else int(code[i]) * 3 for i in range(12))
+            check_digit = (10 - (sum_val % 10)) % 10
+            candidate = code + str(check_digit)
+            if not self.repo.get_by_barcode(candidate):
+                return candidate
+        return f"200{int(time.time())}"
+
     def create_product(self, data: ProductCreate) -> ProductResponse:
         existing = self.repo.get_by_code(data.code)
         if existing:
@@ -84,13 +99,16 @@ class ProductService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Product with SKU '{data.code}' already exists",
             )
-        if data.barcode:
-            existing_bc = self.repo.get_by_barcode(data.barcode)
+        if data.barcode and data.barcode.strip():
+            existing_bc = self.repo.get_by_barcode(data.barcode.strip())
             if existing_bc:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Product with barcode '{data.barcode}' already exists",
                 )
+        else:
+            data.barcode = self._generate_unique_barcode()
+
         product = self.repo.create(data)
         return ProductResponse.model_validate(product)
 
