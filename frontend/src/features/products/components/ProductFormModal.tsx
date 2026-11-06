@@ -50,6 +50,7 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
       await onSubmit({
         name: name.trim(),
         code: code.trim().toUpperCase(),
+        category: 'Motorcycle Spare Parts',
         brand: brand.trim(),
         cost_price: cost,
         selling_price: selling,

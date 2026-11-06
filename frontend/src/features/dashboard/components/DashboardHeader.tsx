@@ -1,14 +1,23 @@
 import { Icon } from './Icon';
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  title?: string;
+  onSearch?: (query: string) => void;
+}
+
+export function DashboardHeader({ title = 'Dashboard', onSearch }: DashboardHeaderProps) {
   return (
     <header className="dashboard-header">
-      <h2>Dashboard</h2>
+      <h2>{title}</h2>
       <div className="header-actions">
         <label className="search-field">
           <span className="sr-only">Search</span>
           <Icon name="search" size={20} />
-          <input type="search" placeholder="Search parts, invoices..." />
+          <input
+            type="search"
+            placeholder="Search parts, invoices..."
+            onChange={(e) => onSearch?.(e.target.value)}
+          />
         </label>
         <button
           className="notification-button"
