@@ -50,9 +50,11 @@ export const productService = {
   async getProducts(params?: ProductFilterParams): Promise<ProductListResponse> {
     try {
       const res = await apiClient.get<ProductListResponse>('/products', { params });
+
       return res.data;
     } catch (err) {
       handleApiError(err, 'Failed to fetch products from backend server');
+
     }
   },
 

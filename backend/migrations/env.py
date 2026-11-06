@@ -5,6 +5,10 @@ from app.core.config import get_settings
 from app.db.base import Base
 
 # Import all models so Base.metadata is fully populated
+from app.models.customer import Customer  # noqa: F401
+from app.models.employee import Employee, EmployeeSalary  # noqa: F401
+from app.models.expense import Expense  # noqa: F401
+from app.models.invoice import Invoice, InvoiceItem  # noqa: F401
 from app.models.product import Product  # noqa: F401
 from sqlalchemy import engine_from_config, pool
 

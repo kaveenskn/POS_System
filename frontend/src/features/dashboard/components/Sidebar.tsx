@@ -8,7 +8,8 @@ const navigation = [
   { label: 'Products', icon: 'box' as const, path: '/products' },
   { label: 'Sales & Billing', icon: 'cart' as const, path: '/sales' },
   { label: 'Inventory', icon: 'package' as const, path: '/inventory' },
-  { label: 'Customers', icon: 'people' as const, path: '/customers' },
+  { label: 'Expenses', icon: 'money' as const, path: '/expenses' },
+  { label: 'Employees', icon: 'people' as const, path: '/employees' },
   { label: 'Reports', icon: 'chart' as const, path: '/reports' },
 ];
 
