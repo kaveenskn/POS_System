@@ -5,13 +5,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", enable_decoding=False
+    )
 
     app_name: str = "POS System API"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
     database_url: str = Field(
-        "******localhost:5432/pos_db",
+        "postgresql+psycopg://pos_user:change-me-in-development@localhost:5432/pos_db",
         validation_alias="DATABASE_URL",
     )
     jwt_secret_key: SecretStr = Field(

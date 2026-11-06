@@ -21,6 +21,24 @@
   --color-success-soft: #ecfdf5;
   --color-focus: #818cf8;
 
+  --dashboard-background: #0d0e10;
+  --dashboard-sidebar: #1b1c22;
+  --dashboard-card: #17181c;
+  --dashboard-secondary: #22242b;
+  --dashboard-accent: #f0442f;
+  --dashboard-accent-gradient: linear-gradient(
+    135deg,
+    #f64d2f 0%,
+    #ef2635 100%
+  );
+  --dashboard-text: #f3f4f6;
+  --dashboard-text-secondary: #9a9ca6;
+  --dashboard-text-muted: #6f727d;
+  --dashboard-border: #292b31;
+  --dashboard-success: #20b968;
+  --dashboard-warning: #e8a91b;
+  --dashboard-input: #121316;
+
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -136,5 +154,492 @@
 
   .card-description {
     font-size: var(--text-sm);
+  }
+
+  .dashboard-shell {
+    min-height: 100vh;
+    background: var(--dashboard-background);
+    color: var(--dashboard-text);
+  }
+
+  .dashboard-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  .dashboard-sidebar {
+    position: fixed;
+    z-index: 10;
+    display: flex;
+    width: 307px;
+    height: calc(100vh - 2px);
+    flex-direction: column;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 0 28px 28px 0;
+    background: var(--dashboard-sidebar);
+    transition: width 240ms ease;
+  }
+
+  .sidebar-is-collapsed .dashboard-sidebar {
+    width: 85px;
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 84px;
+    padding: 14px 16px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .brand-mark {
+    display: grid;
+    width: 49px;
+    height: 49px;
+    flex: 0 0 49px;
+    place-items: center;
+    border-radius: 16px;
+    background: var(--dashboard-accent-gradient);
+    color: white;
+    font-size: 24px;
+  }
+
+  .brand-name {
+    color: var(--dashboard-text);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .sidebar-nav {
+    display: grid;
+    gap: 7px;
+    padding: 28px 12px;
+  }
+
+  .sidebar-link {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 16px;
+    min-height: 54px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 18px;
+    background: transparent;
+    color: var(--dashboard-text-secondary);
+    cursor: pointer;
+    padding: 0 17px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .sidebar-link:hover,
+  .sidebar-link.is-active {
+    color: white;
+  }
+
+  .sidebar-link.is-active {
+    background: var(--dashboard-accent-gradient);
+    box-shadow: 0 10px 24px rgb(240 60 43 / 0.18);
+  }
+
+  .sidebar-link .icon {
+    flex: 0 0 24px;
+  }
+
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: auto;
+    min-height: 86px;
+    padding: 14px 24px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .avatar,
+  .header-avatar {
+    display: grid;
+    flex: 0 0 40px;
+    place-items: center;
+    border-radius: 50%;
+    background: #d7dbe3;
+    color: #24262d;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
+  .user-copy {
+    display: grid;
+    gap: 1px;
+  }
+  .user-copy strong {
+    font-size: 14px;
+  }
+  .user-copy small {
+    color: var(--dashboard-text-muted);
+    font-size: 13px;
+  }
+
+  .sidebar-toggle {
+    position: absolute;
+    top: 78px;
+    right: -15px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--dashboard-accent);
+    color: white;
+    cursor: pointer;
+  }
+
+  .sidebar-toggle .icon {
+    width: 20px;
+    transition: transform 240ms ease;
+  }
+  .sidebar-is-collapsed .sidebar-toggle .icon {
+    transform: rotate(180deg);
+  }
+  .sidebar-is-collapsed .brand-name,
+  .sidebar-is-collapsed .sidebar-link span,
+  .sidebar-is-collapsed .user-copy {
+    display: none;
+  }
+  .sidebar-is-collapsed .sidebar-brand,
+  .sidebar-is-collapsed .sidebar-user {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .sidebar-is-collapsed .sidebar-link {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .dashboard-main {
+    width: calc(100% - 307px);
+    min-width: 0;
+    margin-left: 307px;
+    transition:
+      width 240ms ease,
+      margin-left 240ms ease;
+  }
+
+  .sidebar-is-collapsed .dashboard-main {
+    width: calc(100% - 85px);
+    margin-left: 85px;
+  }
+
+  .dashboard-header {
+    display: flex;
+    height: 73px;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #1f2024;
+    padding: 0 24px 0 43px;
+  }
+
+  .dashboard-header h2 {
+    margin: 0;
+    color: var(--dashboard-text);
+    font-size: 26px;
+    font-weight: 800;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .search-field {
+    display: flex;
+    width: min(348px, 35vw);
+    height: 44px;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 13px;
+    background: var(--dashboard-input);
+    color: var(--dashboard-text-muted);
+    padding: 0 13px;
+  }
+  .search-field input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--dashboard-text);
+    font-size: 15px;
+  }
+  .search-field input::placeholder {
+    color: var(--dashboard-text-muted);
+  }
+  .notification-button {
+    position: relative;
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--dashboard-text);
+    cursor: pointer;
+  }
+  .notification-button span {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--dashboard-accent);
+  }
+  .header-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 19px;
+  }
+
+  .dashboard-content {
+    display: grid;
+    gap: 28px;
+    padding: 29px 24px 42px;
+  }
+
+  .welcome-banner,
+  .stat-card,
+  .sales-overview {
+    border: 1px solid var(--dashboard-border);
+    border-radius: 20px;
+    background: var(--dashboard-card);
+  }
+
+  .welcome-banner {
+    min-height: 128px;
+    padding: 28px 29px;
+    background: linear-gradient(
+      105deg,
+      var(--dashboard-card) 52%,
+      #291b1e 100%
+    );
+  }
+  .welcome-banner p {
+    margin: 0 0 2px;
+    color: var(--dashboard-text-secondary);
+    font-size: 17px;
+  }
+  .welcome-banner h1 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 19px;
+  }
+  .stat-card {
+    position: relative;
+    min-height: 177px;
+    padding: 34px 24px 20px;
+  }
+  .stat-card p {
+    margin: 0 0 18px;
+    color: var(--dashboard-text-secondary);
+    font-size: 17px;
+  }
+  .stat-card strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--dashboard-text);
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .stat-card small {
+    color: var(--dashboard-text-muted);
+    font-size: 14px;
+  }
+  .stat-icon {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 14px;
+  }
+  .stat-icon-orange {
+    background: rgb(240 72 43 / 0.16);
+    color: #f25532;
+  }
+  .stat-icon-green {
+    background: rgb(32 185 104 / 0.15);
+    color: var(--dashboard-success);
+  }
+  .stat-icon-gray {
+    background: #2b2d34;
+    color: #c4c7d0;
+  }
+  .stat-icon-yellow {
+    background: rgb(232 169 27 / 0.16);
+    color: var(--dashboard-warning);
+  }
+
+  .sales-overview {
+    min-height: 300px;
+    padding: 25px 24px;
+  }
+  .sales-overview h2 {
+    margin: 0 0 18px;
+    font-size: 22px;
+  }
+  .chart {
+    position: relative;
+    height: 205px;
+    padding: 0 10px 25px 44px;
+  }
+  .chart-grid {
+    position: absolute;
+    inset: 5px 10px 26px 44px;
+    display: grid;
+    grid-template-rows: repeat(4, 1fr);
+  }
+  .chart-grid span {
+    border-top: 1px solid #292b31;
+  }
+  .chart svg {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 170px;
+    overflow: visible;
+  }
+  .chart-area {
+    fill: url(#chartFill);
+  }
+  .chart-line {
+    fill: none;
+    stroke: #f05232;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .chart-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--dashboard-text-muted);
+    font-size: 12px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 700px) {
+    .dashboard-sidebar {
+      width: 85px;
+    }
+    .dashboard-main,
+    .sidebar-is-collapsed .dashboard-main {
+      width: calc(100% - 85px);
+      margin-left: 85px;
+    }
+    .brand-name,
+    .sidebar-link span,
+    .user-copy {
+      display: none;
+    }
+    .sidebar-brand,
+    .sidebar-user {
+      justify-content: center;
+      padding-inline: 0;
+    }
+    .sidebar-link {
+      justify-content: center;
+      padding-inline: 0;
+    }
+    .dashboard-header {
+      height: auto;
+      min-height: 73px;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+    .dashboard-header h2 {
+      font-size: 22px;
+    }
+    .header-actions {
+      gap: 8px;
+    }
+    .search-field {
+      width: 42px;
+      padding: 0 10px;
+    }
+    .search-field input {
+      display: none;
+    }
+    .notification-button {
+      width: 40px;
+      height: 40px;
+    }
+    .header-avatar {
+      width: 40px;
+      height: 40px;
+    }
+    .dashboard-content {
+      padding: 18px 12px 30px;
+      gap: 16px;
+    }
+    .welcome-banner h1 {
+      font-size: 23px;
+    }
+    .stats-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .stat-card {
+      min-height: 152px;
+    }
+  }
+
+  @media (min-width: 701px) and (max-width: 950px) {
+    .dashboard-sidebar {
+      width: 85px;
+    }
+    .dashboard-main,
+    .sidebar-is-collapsed .dashboard-main {
+      width: calc(100% - 85px);
+      margin-left: 85px;
+    }
+    .brand-name,
+    .sidebar-link span,
+    .user-copy {
+      display: none;
+    }
+    .sidebar-brand,
+    .sidebar-user {
+      justify-content: center;
+      padding-inline: 0;
+    }
+    .sidebar-link {
+      justify-content: center;
+      padding-inline: 0;
+    }
   }
 }

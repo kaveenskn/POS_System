@@ -3,6 +3,9 @@ from logging.config import fileConfig
 from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
+
+# Import all models so Base.metadata is fully populated
+from app.models.product import Product  # noqa: F401
 from sqlalchemy import engine_from_config, pool
 
 config = context.config
