@@ -6,6 +6,10 @@ import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { LandingPage } from '../../features/landing';
 import { LoginPage } from '../../features/auth';
 import { ProductsPage } from '../../features/products';
+import { SalesPage } from '../../features/sales';
+import { ExpensesPage } from '../../features/expenses';
+import { EmployeesPage } from '../../features/employees';
+import { ReportsPage } from '../../features/reports';
 import { PlaceholderView } from '../../components/common/PlaceholderView';
 
 export function AppRouter() {
@@ -58,10 +62,31 @@ export function AppRouter() {
           element={
             <AppLayout>
               <ProductsLayoutWrapper>
-                <PlaceholderView
-                  title="Sales & Billing"
-                  description="Point of Sale billing register, cart checkout, and invoices module."
-                />
+                <SalesPage />
+              </ProductsLayoutWrapper>
+            </AppLayout>
+          }
+        />
+
+        {/* Expenses Management */}
+        <Route
+          path="/expenses"
+          element={
+            <AppLayout>
+              <ProductsLayoutWrapper>
+                <ExpensesPage />
+              </ProductsLayoutWrapper>
+            </AppLayout>
+          }
+        />
+
+        {/* Employee Salary Management */}
+        <Route
+          path="/employees"
+          element={
+            <AppLayout>
+              <ProductsLayoutWrapper>
+                <EmployeesPage />
               </ProductsLayoutWrapper>
             </AppLayout>
           }
@@ -88,10 +113,7 @@ export function AppRouter() {
           element={
             <AppLayout>
               <ProductsLayoutWrapper>
-                <PlaceholderView
-                  title="Reports & Analytics"
-                  description="Financial statements, sales turnover, stock turnover, and tax reports."
-                />
+                <ReportsPage />
               </ProductsLayoutWrapper>
             </AppLayout>
           }
