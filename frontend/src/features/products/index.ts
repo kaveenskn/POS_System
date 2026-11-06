@@ -1,3 +1,14 @@
 export { ProductsPage } from './ProductsPage';
-export { ProductFormModal } from './components/ProductFormModal';
-
+export * from './components/ProductTable';
+export * from './components/ProductStatsCards';
+export * from './components/ProductFilterBar';
+export * from './components/ProductFormView';
+export * from './components/ProductDetailsModal';
+export * from './components/StockAdjustmentModal';
+export * from './components/BarcodePrintModal';
+export * from './components/BarcodeBadge';
+export * from './components/ProductImportModal';
+export * from './components/CategoryBrandModal';
+export * from './components/PosScanModal';
+export * from './components/BulkActionsToolbar';
+export * from './components/ConfirmDialog';
