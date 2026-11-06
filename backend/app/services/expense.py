@@ -23,6 +23,7 @@ class ExpenseService:
         *,
         skip: int = 0,
         limit: int = 50,
+        search: str | None = None,
         category: ExpenseCategory | None = None,
         date_from: datetime.date | None = None,
         date_to: datetime.date | None = None,
@@ -30,6 +31,7 @@ class ExpenseService:
         expenses, total = self.repo.get_all(
             skip=skip,
             limit=limit,
+            search=search,
             category=category,
             date_from=date_from,
             date_to=date_to,

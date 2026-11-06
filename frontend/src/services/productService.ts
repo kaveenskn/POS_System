@@ -426,7 +426,7 @@ export const productService = {
   }): Promise<ProductListResponse> {
     try {
       const res = await apiClient.get<ProductListResponse>('/products', { params });
-      if (res.data && Array.isArray(res.data.items)) {
+      if (res.data && Array.isArray(res.data.items) && res.data.items.length > 0) {
         return res.data;
       }
     } catch {

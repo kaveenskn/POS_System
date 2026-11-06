@@ -23,6 +23,15 @@ limiter = Limiter(
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings)
+    import app.models  # noqa: F401
+    from app.db.base import Base
+    from app.db.seed import seed_database_if_empty
+    from app.db.session import SessionLocal, _build_engine
+
+    engine = _build_engine()
+    Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db_session:
+        seed_database_if_empty(db_session)
     yield
 
 

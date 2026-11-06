@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import type { Expense, ExpenseCategory, ExpenseCreateInput, ExpensePaymentMethod } from '../../../types/expense.types';
-import { EXPENSE_CATEGORY_LABELS } from '../../../types/expense.types';
+import type {
+  Expense,
+  ExpenseCategory,
+  ExpenseCreateInput,
+  ExpensePaymentMethod,
+} from '../../../types/expense.types';
+import { CATEGORY_ICONS, EXPENSE_CATEGORY_LABELS } from '../../../types/expense.types';
 
 interface ExpenseFormModalProps {
   isOpen: boolean;
@@ -15,10 +20,19 @@ const CATEGORIES = Object.entries(EXPENSE_CATEGORY_LABELS).filter(
   ([k]) => k !== 'salary'
 ) as [ExpenseCategory, string][];
 
-const PAYMENT_METHODS: { value: ExpensePaymentMethod; label: string }[] = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
+const PAYMENT_METHODS: { value: ExpensePaymentMethod; label: string; icon: string }[] = [
+  { value: 'cash', label: 'Cash', icon: '💵' },
+  { value: 'card', label: 'Card', icon: '💳' },
+  { value: 'bank_transfer', label: 'Bank Transfer', icon: '🏦' },
+];
+
+const TEMPLATES: { label: string; title: string; category: ExpenseCategory }[] = [
+  { label: '⚡ Electricity', title: 'Monthly Electricity Bill', category: 'electricity' },
+  { label: '💧 Water', title: 'Shop Water Supply Bill', category: 'water' },
+  { label: '🏢 Rent', title: 'Shop Monthly Rent', category: 'rent' },
+  { label: '🌐 Internet', title: 'Dialog Broadband Bill', category: 'internet' },
+  { label: '🚚 Transport', title: 'Parts Transport & Courier', category: 'transportation' },
+  { label: '🔧 Repairs', title: 'Shop Tool & Equipment Maintenance', category: 'maintenance' },
 ];
 
 export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
@@ -36,6 +50,16 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const reset = useCallback(() => {
+    setTitle('');
+    setCategory('electricity');
+    setAmount('');
+    setDate(new Date().toISOString().slice(0, 10));
+    setPaymentMethod('cash');
+    setDescription('');
+    setError(null);
+  }, []);
+
   useEffect(() => {
     if (initialData) {
       setTitle(initialData.title);
@@ -47,18 +71,13 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
     } else {
       reset();
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, reset]);
 
   if (!isOpen) return null;
 
-  const reset = () => {
-    setTitle('');
-    setCategory('electricity');
-    setAmount('');
-    setDate(new Date().toISOString().slice(0, 10));
-    setPaymentMethod('cash');
-    setDescription('');
-    setError(null);
+  const handleApplyTemplate = (tmpl: (typeof TEMPLATES)[number]) => {
+    setTitle(tmpl.title);
+    setCategory(tmpl.category);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -86,18 +105,25 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
     }
   };
 
+  const numericAmount = parseFloat(amount);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="exp-modal-title"
     >
       <div className="relative w-full max-w-lg bg-[#14161d] border border-zinc-800 rounded-2xl p-6 shadow-2xl text-white">
-        <div className="flex items-center justify-between mb-5">
-          <h2 id="exp-modal-title" className="text-lg font-bold">
-            {initialData ? 'Edit Expense' : 'Add Expense'}
-          </h2>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+          <div>
+            <h2 id="exp-modal-title" className="text-lg font-bold text-white">
+              {initialData ? 'Edit Expense Record' : 'Record Business Expense'}
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Enter expense details for accurate financial accounting
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -116,10 +142,31 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
           </div>
         )}
 
+        {/* Quick templates chips when adding new */}
+        {!initialData && (
+          <div className="mb-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Quick Templates
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {TEMPLATES.map((tmpl) => (
+                <button
+                  key={tmpl.label}
+                  type="button"
+                  onClick={() => handleApplyTemplate(tmpl)}
+                  className="px-2.5 py-1 text-xs rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition active:scale-95"
+                >
+                  {tmpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="exp-title" className="block text-xs font-semibold text-zinc-400 mb-1.5">
-              Title <span className="text-[#eb4826]">*</span>
+              Expense Title / Purpose <span className="text-[#eb4826]">*</span>
             </label>
             <input
               id="exp-title"
@@ -127,7 +174,7 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Electricity Bill - Branch 1"
+              placeholder="e.g. Electricity Bill - Main Workshop"
               className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#eb4826]"
             />
           </div>
@@ -141,19 +188,27 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
                 id="exp-cat"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#eb4826]"
+                className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#eb4826]"
               >
                 {CATEGORIES.map(([v, l]) => (
                   <option key={v} value={v}>
-                    {l}
+                    {CATEGORY_ICONS[v]} {l}
                   </option>
                 ))}
               </select>
             </div>
+
             <div>
-              <label htmlFor="exp-amount" className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                Amount (Rs.) <span className="text-[#eb4826]">*</span>
-              </label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label htmlFor="exp-amount" className="block text-xs font-semibold text-zinc-400">
+                  Amount (LKR) <span className="text-[#eb4826]">*</span>
+                </label>
+                {!isNaN(numericAmount) && numericAmount > 0 && (
+                  <span className="text-[11px] font-mono text-emerald-400">
+                    Rs. {numericAmount.toLocaleString()}
+                  </span>
+                )}
+              </div>
               <input
                 id="exp-amount"
                 type="number"
@@ -163,7 +218,7 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#eb4826]"
+                className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-[#eb4826]"
               />
             </div>
           </div>
@@ -171,7 +226,7 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="exp-date" className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                Date <span className="text-[#eb4826]">*</span>
+                Expense Date <span className="text-[#eb4826]">*</span>
               </label>
               <input
                 id="exp-date"
@@ -190,11 +245,11 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
                 id="exp-pay"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as ExpensePaymentMethod)}
-                className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#eb4826]"
+                className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#eb4826]"
               >
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m.value} value={m.value}>
-                    {m.label}
+                    {m.icon} {m.label}
                   </option>
                 ))}
               </select>
@@ -203,19 +258,19 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
 
           <div>
             <label htmlFor="exp-desc" className="block text-xs font-semibold text-zinc-400 mb-1.5">
-              Description <span className="text-zinc-500 font-normal">(Optional)</span>
+              Description / Voucher Notes <span className="text-zinc-500 font-normal">(Optional)</span>
             </label>
             <textarea
               id="exp-desc"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Additional notes or reference number..."
-              className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#eb4826]"
+              placeholder="e.g. Cheque #10423 or receipt slip reference..."
+              className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#eb4826]"
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-3">
             <button
               type="button"
               onClick={() => {
@@ -232,7 +287,7 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
               disabled={isLoading}
               className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-[#eb4826] hover:bg-[#ff5534] text-white shadow-md transition disabled:opacity-50"
             >
-              {isLoading ? 'Saving...' : initialData ? 'Update Expense' : 'Save Expense'}
+              {isLoading ? 'Saving...' : initialData ? 'Update Record' : 'Save Expense'}
             </button>
           </div>
         </form>
@@ -240,4 +295,3 @@ export const ExpenseFormModal: FC<ExpenseFormModalProps> = ({
     </div>
   );
 };
-

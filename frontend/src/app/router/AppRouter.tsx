@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from '../layouts/AppLayout';
-import { ProductsLayoutWrapper } from '../layouts/ProductsLayoutWrapper';
 import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { LandingPage } from '../../features/landing';
 import { LoginPage } from '../../features/auth';
@@ -22,102 +21,25 @@ export function AppRouter() {
         {/* Staff / Admin Login Page */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Staff & POS Foundation Dashboard */}
-        <Route
-          path="/dashboard"
-          element={
-            <AppLayout>
-              <DashboardPage />
-            </AppLayout>
-          }
-        />
-
-        {/* Products */}
-        <Route
-          path="/products"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <ProductsPage />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
-
-        {/* Inventory (links to products & stock management) */}
-        <Route
-          path="/inventory"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <ProductsPage />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
-
-        {/* Sales & Billing */}
-        <Route
-          path="/sales"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <SalesPage />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
-
-        {/* Expenses Management */}
-        <Route
-          path="/expenses"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <ExpensesPage />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
-
-        {/* Employee Salary Management */}
-        <Route
-          path="/employees"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <EmployeesPage />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
-
-        {/* Customers */}
-        <Route
-          path="/customers"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <PlaceholderView
-                  title="Customer Directory"
-                  description="Manage customer accounts, purchase history, and contact details."
-                />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
-
-        {/* Reports */}
-        <Route
-          path="/reports"
-          element={
-            <AppLayout>
-              <ProductsLayoutWrapper>
-                <ReportsPage />
-              </ProductsLayoutWrapper>
-            </AppLayout>
-          }
-        />
+        {/* Unified Dashboard Layout for all internal tabs */}
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/inventory" element={<ProductsPage />} />
+          <Route path="/sales" element={<SalesPage />} />
+          <Route path="/expenses" element={<ExpensesPage />} />
+          <Route path="/employees" element={<EmployeesPage />} />
+          <Route
+            path="/customers"
+            element={
+              <PlaceholderView
+                title="Customer Directory"
+                description="Manage customer accounts, purchase history, and contact details."
+              />
+            }
+          />
+          <Route path="/reports" element={<ReportsPage />} />
+        </Route>
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

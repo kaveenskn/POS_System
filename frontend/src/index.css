@@ -411,9 +411,11 @@
   }
 
   .dashboard-content {
-    display: grid;
-    gap: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
     padding: 29px 24px 42px;
+    min-width: 0;
   }
 
   .welcome-banner,

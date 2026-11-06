@@ -19,12 +19,19 @@ class ExpenseRepository:
         *,
         skip: int = 0,
         limit: int = 50,
+        search: str | None = None,
         category: ExpenseCategory | None = None,
         date_from: datetime.date | None = None,
         date_to: datetime.date | None = None,
     ) -> tuple[list[Expense], int]:
         stmt = select(Expense)
         count_stmt = select(func.count()).select_from(Expense)
+
+        if search:
+            pattern = f"%{search}%"
+            search_cond = Expense.title.ilike(pattern) | Expense.description.ilike(pattern)
+            stmt = stmt.where(search_cond)
+            count_stmt = count_stmt.where(search_cond)
 
         if category:
             stmt = stmt.where(Expense.category == category)

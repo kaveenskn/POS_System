@@ -50,6 +50,7 @@ export interface ExpenseSummary {
   total_salary: number;
   total_operating: number;
   period_label: string;
+  by_category?: Record<string, number>;
 }
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -61,5 +62,16 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   maintenance: 'Maintenance & Repairs',
   salary: 'Employee Salary',
   other: 'Other',
+};
+
+export const CATEGORY_ICONS: Record<ExpenseCategory, string> = {
+  electricity: '⚡',
+  water: '💧',
+  rent: '🏢',
+  internet: '🌐',
+  transportation: '🚚',
+  maintenance: '🔧',
+  salary: '👥',
+  other: '📦',
 };
 

@@ -31,6 +31,7 @@ def get_expense_summary(
 def list_expenses(
     skip: int = Query(0, ge=0),  # noqa: B008
     limit: int = Query(50, ge=1, le=100),  # noqa: B008
+    search: str | None = Query(None, max_length=200),  # noqa: B008
     category: ExpenseCategory | None = Query(None),  # noqa: B008
     date_from: datetime.date | None = Query(None),  # noqa: B008
     date_to: datetime.date | None = Query(None),  # noqa: B008
@@ -38,7 +39,12 @@ def list_expenses(
 ) -> ExpenseListResponse:
     service = ExpenseService(db)
     return service.list_expenses(
-        skip=skip, limit=limit, category=category, date_from=date_from, date_to=date_to
+        skip=skip,
+        limit=limit,
+        search=search,
+        category=category,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 
