@@ -6,6 +6,7 @@ import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { LandingPage } from '../../features/landing';
 import { LoginPage } from '../../features/auth';
 import { ProductsPage } from '../../features/products';
+import { ReportsPage } from '../../features/reports';
 import { PlaceholderView } from '../../components/common/PlaceholderView';
 
 export function AppRouter() {
@@ -88,10 +89,7 @@ export function AppRouter() {
           element={
             <AppLayout>
               <ProductsLayoutWrapper>
-                <PlaceholderView
-                  title="Reports & Analytics"
-                  description="Financial statements, sales turnover, stock turnover, and tax reports."
-                />
+                <ReportsPage />
               </ProductsLayoutWrapper>
             </AppLayout>
           }

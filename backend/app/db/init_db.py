@@ -1,8 +1,10 @@
+import datetime
 import logging
 from sqlalchemy import text
 from app.db.base import Base
 from app.db.session import _build_engine, _build_session_factory
 from app.models.product import Brand, Category, Product, ProductActivity, StockMovement
+from app.models.report import Purchase, PurchaseItem, Sale, SaleItem, SupplierPayment
 
 logger = logging.getLogger(__name__)
 
@@ -263,3 +265,234 @@ def init_database() -> None:
 
             db.commit()
             logger.info("Database initialized: Sample motorcycle spare parts registered.")
+
+        # 4. Seed Sales if empty
+        if not db.query(Sale).first():
+            now = datetime.datetime.now(datetime.timezone.utc)
+            sample_sales = [
+                Sale(
+                    invoice_number="INV-2026-1042",
+                    sale_date=now - datetime.timedelta(hours=2),
+                    subtotal=5300.0,
+                    discount_amount=0.0,
+                    tax_amount=0.0,
+                    total_amount=5300.0,
+                    payment_method="Cash",
+                    cashier_name="Admin",
+                    customer_name="Kamal Perera (WP-CAD-8812)",
+                    items=[
+                        SaleItem(
+                            product_name="Brembo Sintered Front Brake Pads",
+                            product_code="BRM-BP-001",
+                            quantity=2,
+                            unit_price=2650.0,
+                            cost_price=1850.0,
+                            subtotal=5300.0,
+                        )
+                    ],
+                ),
+                Sale(
+                    invoice_number="INV-2026-1039",
+                    sale_date=now - datetime.timedelta(days=1, hours=3),
+                    subtotal=4950.0,
+                    discount_amount=0.0,
+                    tax_amount=0.0,
+                    total_amount=4950.0,
+                    payment_method="Card",
+                    cashier_name="Admin",
+                    customer_name="Sunil Jayawardena",
+                    items=[
+                        SaleItem(
+                            product_name="Motul 7100 4T 10W-40 100% Synthetic 1L",
+                            product_code="MOT-OIL-7100",
+                            quantity=1,
+                            unit_price=4950.0,
+                            cost_price=3800.0,
+                            subtotal=4950.0,
+                        )
+                    ],
+                ),
+                Sale(
+                    invoice_number="INV-2026-1025",
+                    sale_date=now - datetime.timedelta(days=3, hours=5),
+                    subtotal=9600.0,
+                    discount_amount=400.0,
+                    tax_amount=0.0,
+                    total_amount=9200.0,
+                    payment_method="Card",
+                    cashier_name="Cashier #2",
+                    customer_name="Nihal Motors Workshop",
+                    items=[
+                        SaleItem(
+                            product_name="NGK Laser Iridium Spark Plug CR9EIX",
+                            product_code="NGK-SP-CR9E",
+                            quantity=4,
+                            unit_price=2400.0,
+                            cost_price=1600.0,
+                            subtotal=9600.0,
+                        )
+                    ],
+                ),
+                Sale(
+                    invoice_number="INV-2026-0988",
+                    sale_date=now - datetime.timedelta(days=12),
+                    subtotal=19800.0,
+                    discount_amount=0.0,
+                    tax_amount=0.0,
+                    total_amount=19800.0,
+                    payment_method="Bank Transfer",
+                    cashier_name="Admin",
+                    customer_name="Rider Club Colombo",
+                    items=[
+                        SaleItem(
+                            product_name="DID 520VX3 Gold X-Ring Drive Chain 120L",
+                            product_code="DID-CH-520VX",
+                            quantity=1,
+                            unit_price=19800.0,
+                            cost_price=14500.0,
+                            subtotal=19800.0,
+                        )
+                    ],
+                ),
+                Sale(
+                    invoice_number="INV-2026-0912",
+                    sale_date=now - datetime.timedelta(days=25),
+                    subtotal=3100.0,
+                    discount_amount=0.0,
+                    tax_amount=0.0,
+                    total_amount=3100.0,
+                    payment_method="Cash",
+                    cashier_name="Cashier #1",
+                    customer_name="Dinesh Fernando",
+                    items=[
+                        SaleItem(
+                            product_name="Honda Dio / Activa CVT Drive Belt",
+                            product_code="HON-BLT-DIO",
+                            quantity=1,
+                            unit_price=3100.0,
+                            cost_price=2200.0,
+                            subtotal=3100.0,
+                        )
+                    ],
+                ),
+            ]
+            db.add_all(sample_sales)
+            db.commit()
+            logger.info("Database initialized: Sample sales transactions seeded.")
+
+        # 5. Seed Purchases if empty
+        if not db.query(Purchase).first():
+            now = datetime.datetime.now(datetime.timezone.utc)
+            sample_purchases = [
+                Purchase(
+                    purchase_number="PO-2026-081",
+                    supplier_name="Brembo Auto & Moto Dist",
+                    purchase_date=now - datetime.timedelta(days=35),
+                    total_amount=46250.0,
+                    paid_amount=46250.0,
+                    outstanding_amount=0.0,
+                    payment_status="Paid",
+                    items=[
+                        PurchaseItem(
+                            product_name="Brembo Sintered Front Brake Pads",
+                            product_code="BRM-BP-001",
+                            quantity=25,
+                            unit_cost=1850.0,
+                            subtotal=46250.0,
+                        )
+                    ],
+                    payments=[
+                        SupplierPayment(
+                            supplier_name="Brembo Auto & Moto Dist",
+                            payment_date=now - datetime.timedelta(days=30),
+                            amount=46250.0,
+                            payment_method="Bank Transfer",
+                            reference_number="TXN-BRM-8891",
+                        )
+                    ],
+                ),
+                Purchase(
+                    purchase_number="PO-2026-085",
+                    supplier_name="Motul Lubricants Ceylon",
+                    purchase_date=now - datetime.timedelta(days=20),
+                    total_amount=152000.0,
+                    paid_amount=120000.0,
+                    outstanding_amount=32000.0,
+                    payment_status="Partial",
+                    items=[
+                        PurchaseItem(
+                            product_name="Motul 7100 4T 10W-40 100% Synthetic 1L",
+                            product_code="MOT-OIL-7100",
+                            quantity=40,
+                            unit_cost=3800.0,
+                            subtotal=152000.0,
+                        )
+                    ],
+                    payments=[
+                        SupplierPayment(
+                            supplier_name="Motul Lubricants Ceylon",
+                            payment_date=now - datetime.timedelta(days=15),
+                            amount=120000.0,
+                            payment_method="Bank Transfer",
+                            reference_number="TXN-MOT-7712",
+                        )
+                    ],
+                ),
+                Purchase(
+                    purchase_number="PO-2026-088",
+                    supplier_name="DID Moto Chains Asia",
+                    purchase_date=now - datetime.timedelta(days=15),
+                    total_amount=174000.0,
+                    paid_amount=174000.0,
+                    outstanding_amount=0.0,
+                    payment_status="Paid",
+                    items=[
+                        PurchaseItem(
+                            product_name="DID 520VX3 Gold X-Ring Drive Chain 120L",
+                            product_code="DID-CH-520VX",
+                            quantity=12,
+                            unit_cost=14500.0,
+                            subtotal=174000.0,
+                        )
+                    ],
+                    payments=[
+                        SupplierPayment(
+                            supplier_name="DID Moto Chains Asia",
+                            payment_date=now - datetime.timedelta(days=14),
+                            amount=174000.0,
+                            payment_method="Bank Transfer",
+                            reference_number="TXN-DID-9012",
+                        )
+                    ],
+                ),
+                Purchase(
+                    purchase_number="PO-2026-092",
+                    supplier_name="Stafford Motor Spares",
+                    purchase_date=now - datetime.timedelta(days=8),
+                    total_amount=55000.0,
+                    paid_amount=40000.0,
+                    outstanding_amount=15000.0,
+                    payment_status="Partial",
+                    items=[
+                        PurchaseItem(
+                            product_name="Honda Dio / Activa CVT Drive Belt",
+                            product_code="HON-BLT-DIO",
+                            quantity=25,
+                            unit_cost=2200.0,
+                            subtotal=55000.0,
+                        )
+                    ],
+                    payments=[
+                        SupplierPayment(
+                            supplier_name="Stafford Motor Spares",
+                            payment_date=now - datetime.timedelta(days=5),
+                            amount=40000.0,
+                            payment_method="Cheque",
+                            reference_number="CHQ-778812",
+                        )
+                    ],
+                ),
+            ]
+            db.add_all(sample_purchases)
+            db.commit()
+            logger.info("Database initialized: Sample purchases and supplier payments seeded.")

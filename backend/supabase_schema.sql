@@ -121,6 +121,85 @@ CREATE TABLE IF NOT EXISTS public.product_activities (
 
 CREATE INDEX IF NOT EXISTS idx_product_activities_product_id ON public.product_activities (product_id);
 
+-- 6. SALES AND SALE ITEMS
+CREATE TABLE IF NOT EXISTS public.sales (
+    id BIGSERIAL PRIMARY KEY,
+    invoice_number VARCHAR(100) NOT NULL UNIQUE,
+    sale_date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    subtotal NUMERIC(12, 2) NOT NULL,
+    discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    tax_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    total_amount NUMERIC(12, 2) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'Cash',
+    cashier_name VARCHAR(100) NOT NULL DEFAULT 'Admin',
+    customer_name VARCHAR(100),
+    customer_phone VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_invoice_number ON public.sales (invoice_number);
+CREATE INDEX IF NOT EXISTS idx_sales_sale_date ON public.sales (sale_date);
+
+CREATE TABLE IF NOT EXISTS public.sale_items (
+    id BIGSERIAL PRIMARY KEY,
+    sale_id BIGINT NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES public.products(id) ON DELETE SET NULL,
+    product_name VARCHAR(255) NOT NULL,
+    product_code VARCHAR(100) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_price NUMERIC(12, 2) NOT NULL,
+    cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    subtotal NUMERIC(12, 2) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON public.sale_items (sale_id);
+
+-- 7. PURCHASES AND PURCHASE ITEMS
+CREATE TABLE IF NOT EXISTS public.purchases (
+    id BIGSERIAL PRIMARY KEY,
+    purchase_number VARCHAR(100) NOT NULL UNIQUE,
+    supplier_name VARCHAR(255) NOT NULL,
+    purchase_date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    total_amount NUMERIC(12, 2) NOT NULL,
+    paid_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    outstanding_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    payment_status VARCHAR(50) NOT NULL DEFAULT 'Paid',
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchases_number ON public.purchases (purchase_number);
+CREATE INDEX IF NOT EXISTS idx_purchases_supplier ON public.purchases (supplier_name);
+
+CREATE TABLE IF NOT EXISTS public.purchase_items (
+    id BIGSERIAL PRIMARY KEY,
+    purchase_id BIGINT NOT NULL REFERENCES public.purchases(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES public.products(id) ON DELETE SET NULL,
+    product_name VARCHAR(255) NOT NULL,
+    product_code VARCHAR(100) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_cost NUMERIC(12, 2) NOT NULL,
+    subtotal NUMERIC(12, 2) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON public.purchase_items (purchase_id);
+
+-- 8. SUPPLIER PAYMENTS
+CREATE TABLE IF NOT EXISTS public.supplier_payments (
+    id BIGSERIAL PRIMARY KEY,
+    supplier_name VARCHAR(255) NOT NULL,
+    purchase_id BIGINT REFERENCES public.purchases(id) ON DELETE SET NULL,
+    payment_date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    amount NUMERIC(12, 2) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'Bank Transfer',
+    reference_number VARCHAR(100),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON public.supplier_payments (supplier_name);
+
 -- =============================================================================
 -- INITIAL DATA SEEDING (Run only if tables are empty)
 -- =============================================================================
