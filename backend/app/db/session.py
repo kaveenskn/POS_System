@@ -13,30 +13,6 @@ logger = logging.getLogger(__name__)
 @lru_cache
 def _build_engine() -> Engine:
     settings = get_settings()
-<<<<<<< HEAD
-    db_url = settings.database_url
-    if db_url.startswith("sqlite"):
-        return create_engine(
-            db_url,
-            connect_args={"check_same_thread": False},
-        )
-
-    try:
-        engine = create_engine(db_url, pool_pre_ping=True, pool_size=5, max_overflow=10)
-        with engine.connect():
-            pass
-        return engine
-    except Exception as exc:
-        logger.warning(
-            "PostgreSQL database connection failed (%s). "
-            "Falling back to local SQLite pos_system.db",
-            exc,
-        )
-        return create_engine(
-            "sqlite:///./pos_system.db",
-            connect_args={"check_same_thread": False},
-        )
-=======
     url = settings.database_url.strip()
 
     # Automatically format postgres / supabase URLs for psycopg 3
@@ -51,14 +27,26 @@ def _build_engine() -> Engine:
             connect_args={"check_same_thread": False},
         )
 
-    # PostgreSQL / Supabase pool configuration
-    return create_engine(
-        url,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-    )
->>>>>>> 18cb8cae3765f4b8e284e3fc9b41cdfe3f9ac2d8
+    try:
+        engine = create_engine(
+            url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+        )
+        with engine.connect():
+            pass
+        return engine
+    except Exception as exc:
+        logger.warning(
+            "PostgreSQL database connection failed (%s). "
+            "Falling back to local SQLite pos_system.db",
+            exc,
+        )
+        return create_engine(
+            "sqlite:///./pos_system.db",
+            connect_args={"check_same_thread": False},
+        )
 
 
 @lru_cache

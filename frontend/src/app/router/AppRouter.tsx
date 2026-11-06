@@ -4,7 +4,7 @@ import { AppLayout } from '../layouts/AppLayout';
 import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { LandingPage } from '../../features/landing';
 import { LoginPage } from '../../features/auth';
-import { ProductsPage } from '../../features/products';
+import { InventoryPage } from '../../features/inventory';
 import { SalesPage } from '../../features/sales';
 import { ExpensesPage } from '../../features/expenses';
 import { EmployeesPage } from '../../features/employees';
@@ -24,8 +24,8 @@ export function AppRouter() {
         {/* Unified Dashboard Layout for all internal tabs */}
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/inventory" element={<ProductsPage />} />
+          <Route path="/products" element={<Navigate to="/inventory" replace />} />
+          <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/employees" element={<EmployeesPage />} />
