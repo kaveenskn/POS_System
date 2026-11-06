@@ -151,6 +151,41 @@ export const invoiceService = {
     return productService.getProducts({ search: query, limit: 20 });
   },
 
+  /**
+   * Find a product by its exact barcode.
+   * First tries the backend barcode-scan endpoint, then falls back
+   * to the local product store searching by barcode field.
+   */
+  async findByBarcode(barcode: string) {
+    try {
+      const product = await productService.getProductByBarcode(barcode);
+      if (product && product.id) return product;
+    } catch {
+      // Not found on backend or backend offline — search locally
+    }
+
+    // Fallback: search local product store by barcode or product code
+    const result = await productService.getProducts({ search: barcode, limit: 50 });
+    if (result && Array.isArray(result.items)) {
+      // Exact barcode match first
+      const exactBarcode = result.items.find(
+        (p) => p.barcode && p.barcode.toLowerCase() === barcode.toLowerCase()
+      );
+      if (exactBarcode) return exactBarcode;
+
+      // Exact code match
+      const exactCode = result.items.find(
+        (p) => p.code && p.code.toLowerCase() === barcode.toLowerCase()
+      );
+      if (exactCode) return exactCode;
+
+      // Return first result if anything matches
+      if (result.items.length === 1) return result.items[0];
+    }
+
+    return null;
+  },
+
   async createInvoice(payload: InvoiceCreate): Promise<InvoiceResponse> {
     try {
       const { data } = await apiClient.post<InvoiceResponse>('/invoices', payload);
