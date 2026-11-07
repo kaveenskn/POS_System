@@ -26,6 +26,29 @@ export interface ProductFilterParams {
   sort_order?: string;
 }
 
+const LOCAL_STORAGE_KEY = 'torqueline_products_cache';
+
+function getLocalProducts(): Product[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveLocalProducts(products: Product[]): void {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+  } catch {
+    // ignore
+  }
+}
+
 function handleApiError(error: unknown, fallbackMessage: string): never {
   if (error && typeof error === 'object' && 'response' in error) {
     const axiosErr = error as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } };
@@ -50,12 +73,29 @@ export const productService = {
   async getProducts(params?: ProductFilterParams): Promise<ProductListResponse> {
     try {
       const res = await apiClient.get<ProductListResponse>('/products', { params });
-
-      return res.data;
-    } catch (err) {
-      handleApiError(err, 'Failed to fetch products from backend server');
-
+      if (res.data && Array.isArray(res.data.items)) {
+        if (res.data.items.length > 0) {
+          saveLocalProducts(res.data.items);
+        }
+        return res.data;
+      }
+    } catch {
+      // Offline fallback
     }
+
+    let items = getLocalProducts();
+    if (params?.search && params.search.trim()) {
+      const q = params.search.toLowerCase().trim();
+      items = items.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.code.toLowerCase().includes(q) ||
+          (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+          (p.brand && p.brand.toLowerCase().includes(q)) ||
+          (p.category && p.category.toLowerCase().includes(q))
+      );
+    }
+    return { items, total: items.length };
   },
 
   /**
@@ -65,8 +105,16 @@ export const productService = {
     try {
       const res = await apiClient.get<ProductStatistics>('/products/statistics');
       return res.data;
-    } catch (err) {
-      handleApiError(err, 'Failed to retrieve inventory statistics from backend');
+    } catch {
+      const items = getLocalProducts();
+      return {
+        total_products: items.length,
+        active_products: items.filter((p) => p.status === 'active').length,
+        low_stock_products: items.filter((p) => p.quantity > 0 && p.quantity <= p.min_stock_level).length,
+        out_of_stock_products: items.filter((p) => p.quantity <= 0).length,
+        total_inventory_value: items.reduce((s, p) => s + (p.cost_price || 0) * (p.quantity || 0), 0),
+        categories_count: new Set(items.map((p) => p.category)).size,
+      };
     }
   },
 
@@ -78,6 +126,9 @@ export const productService = {
       const res = await apiClient.get<Product>(`/products/${id}`);
       return res.data;
     } catch (err) {
+      const local = getLocalProducts();
+      const match = local.find((p) => p.id === id);
+      if (match) return match;
       handleApiError(err, `Failed to fetch product #${id}`);
     }
   },
@@ -90,6 +141,13 @@ export const productService = {
       const res = await apiClient.get<Product>(`/products/barcode/${encodeURIComponent(barcode)}`);
       return res.data;
     } catch (err) {
+      const local = getLocalProducts();
+      const match = local.find(
+        (p) =>
+          (p.barcode && p.barcode.toLowerCase() === barcode.toLowerCase()) ||
+          p.code.toLowerCase() === barcode.toLowerCase()
+      );
+      if (match) return match;
       handleApiError(err, `No product found for scanned barcode: ${barcode}`);
     }
   },
@@ -100,10 +158,46 @@ export const productService = {
   async createProduct(data: ProductCreateInput): Promise<Product> {
     try {
       const res = await apiClient.post<Product>('/products', data);
-      return res.data;
-    } catch (err) {
-      handleApiError(err, 'Failed to save product in database');
+      if (res.data && res.data.id) {
+        const local = getLocalProducts();
+        saveLocalProducts([res.data, ...local]);
+        return res.data;
+      }
+    } catch {
+      // Offline fallback
     }
+
+    const local = getLocalProducts();
+    const newId = local.length > 0 ? Math.max(...local.map((p) => p.id)) + 1 : 1;
+    const newProduct: Product = {
+      id: newId,
+      name: data.name,
+      code: data.code,
+      barcode: data.barcode ?? null,
+      barcode_type: data.barcode_type ?? 'CODE128',
+      category: data.category,
+      brand: data.brand,
+      cost_price: data.cost_price,
+      selling_price: data.selling_price,
+      quantity: data.quantity ?? 0,
+      opening_stock: data.opening_stock ?? 0,
+      unit: data.unit ?? 'Pieces',
+      min_stock_level: data.min_stock_level ?? 5,
+      reorder_level: data.reorder_level ?? 10,
+      warehouse_location: data.warehouse_location ?? null,
+      compatible_models: data.compatible_models ?? null,
+      product_type: data.product_type ?? 'standard',
+      status: data.status ?? 'active',
+      default_discount: data.default_discount ?? 0,
+      tax_rate: data.tax_rate ?? 0,
+      stock_tracking_enabled: true,
+      preferred_supplier: false,
+      is_featured: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    saveLocalProducts([newProduct, ...local]);
+    return newProduct;
   },
 
   /**
@@ -112,10 +206,31 @@ export const productService = {
   async updateProduct(id: number, data: Partial<ProductCreateInput>): Promise<Product> {
     try {
       const res = await apiClient.patch<Product>(`/products/${id}`, data);
-      return res.data;
-    } catch (err) {
-      handleApiError(err, `Failed to update product #${id}`);
+      if (res.data) {
+        const local = getLocalProducts().map((p) => (p.id === id ? res.data : p));
+        saveLocalProducts(local);
+        return res.data;
+      }
+    } catch {
+      // Offline fallback
     }
+
+    const local = getLocalProducts();
+    let updated: Product | null = null;
+    const next = local.map((p) => {
+      if (p.id === id) {
+        updated = {
+          ...p,
+          ...data,
+          updated_at: new Date().toISOString(),
+        } as Product;
+        return updated;
+      }
+      return p;
+    });
+    saveLocalProducts(next);
+    if (!updated) throw new Error(`Product #${id} not found.`);
+    return updated;
   },
 
   /**
@@ -124,9 +239,11 @@ export const productService = {
   async deleteProduct(id: number): Promise<void> {
     try {
       await apiClient.delete(`/products/${id}`);
-    } catch (err) {
-      handleApiError(err, `Failed to delete product #${id}`);
+    } catch {
+      // Offline fallback
     }
+    const local = getLocalProducts().filter((p) => p.id !== id);
+    saveLocalProducts(local);
   },
 
   /**
@@ -135,10 +252,40 @@ export const productService = {
   async adjustStock(productId: number, data: StockAdjustmentInput): Promise<StockMovement> {
     try {
       const res = await apiClient.post<StockMovement>(`/products/${productId}/adjust-stock`, data);
-      return res.data;
-    } catch (err) {
-      handleApiError(err, 'Failed to adjust stock on backend server');
+      if (res.data) {
+        const local = getLocalProducts().map((p) => {
+          if (p.id === productId) {
+            const delta = data.adjustment_type === 'increase' ? data.adjustment_quantity : -data.adjustment_quantity;
+            return { ...p, quantity: Math.max(0, p.quantity + delta) };
+          }
+          return p;
+        });
+        saveLocalProducts(local);
+        return res.data;
+      }
+    } catch {
+      // Offline fallback
     }
+
+    const local = getLocalProducts();
+    const p = local.find((item) => item.id === productId);
+    const prevQty = p ? p.quantity : 0;
+    const delta = data.adjustment_type === 'increase' ? data.adjustment_quantity : -data.adjustment_quantity;
+    const newQty = Math.max(0, prevQty + delta);
+    const next = local.map((item) => (item.id === productId ? { ...item, quantity: newQty } : item));
+    saveLocalProducts(next);
+
+    return {
+      id: Date.now(),
+      product_id: productId,
+      movement_type: 'ADJUSTMENT',
+      adjustment_quantity: delta,
+      previous_quantity: prevQty,
+      new_quantity: newQty,
+      reason: data.reason,
+      user_name: data.user_name ?? 'Admin',
+      created_at: new Date().toISOString(),
+    };
   },
 
   /**

@@ -48,17 +48,26 @@ export const POSRegister: FC = () => {
 
   // ─── addToCart (shared by search-select and scanner) ────────────────────────
   const addToCart = useCallback((product: Product) => {
+    if (product.quantity <= 0) {
+      setError(`Cannot add "${product.name}": Out of stock (0 available).`);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((i) => i.product_id === product.id);
       if (existing) {
-        if (existing.quantity >= existing.available_stock) return prev; // stock guard
+        if (existing.quantity >= existing.available_stock) {
+          setError(
+            `Cannot add more "${product.name}": Available stock limit (${existing.available_stock}) reached.`
+          );
+          return prev;
+        }
         return prev.map((i) =>
           i.product_id === product.id
             ? { ...i, quantity: i.quantity + 1, line_total: i.unit_price * (i.quantity + 1) }
             : i
         );
       }
-      if (product.quantity <= 0) return prev;
       return [
         ...prev,
         {
@@ -73,6 +82,25 @@ export const POSRegister: FC = () => {
         },
       ];
     });
+
+    // Play standard POS scanner confirmation beep
+    try {
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1760, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.08);
+    } catch {
+      // AudioContext not supported or user has not interacted
+    }
+
     setProductSearch('');
     setShowDropdown(false);
     searchRef.current?.focus();
@@ -81,25 +109,49 @@ export const POSRegister: FC = () => {
   // ─── Barcode scanner handler ────────────────────────────────────────────────
   const handleBarcodeScan = useCallback(
     async (barcode: string) => {
-      // Don't process if the user is currently typing in the search box manually
-      // (we distinguish by checking if productSearch has content being edited)
-      setLastScannedCode(barcode);
+      const cleanCode = barcode.trim();
+      if (!cleanCode) return;
+
+      setLastScannedCode(cleanCode);
       setScanState('scanning');
       if (scanFeedbackTimer.current) clearTimeout(scanFeedbackTimer.current);
 
       try {
-        const product = await invoiceService.findByBarcode(barcode);
+        const product = await invoiceService.findByBarcode(cleanCode);
 
         if (product) {
-          setScanState('found');
-          setLastScannedProduct(product.name);
-          addToCart(product);
+          if (product.quantity <= 0) {
+            setScanState('not_found');
+            setError(`Cannot add "${product.name}": Product is out of stock (0 available).`);
+          } else {
+            setScanState('found');
+            setLastScannedProduct(product.name);
+            setError(null);
+            addToCart(product);
+          }
         } else {
-          setScanState('not_found');
-          setLastScannedProduct('');
+          // If not found by exact barcode, try text search for part code / name
+          const searchRes = await invoiceService.searchProducts(cleanCode);
+          if (searchRes.items && searchRes.items.length > 0) {
+            const topMatch = searchRes.items[0];
+            if (topMatch.quantity <= 0) {
+              setScanState('not_found');
+              setError(`Cannot add "${topMatch.name}": Product is out of stock.`);
+            } else {
+              setScanState('found');
+              setLastScannedProduct(topMatch.name);
+              setError(null);
+              addToCart(topMatch);
+            }
+          } else {
+            setScanState('not_found');
+            setLastScannedProduct('');
+            setError(`Barcode "${cleanCode}" not found in inventory.`);
+          }
         }
       } catch {
         setScanState('not_found');
+        setError(`Failed to scan barcode "${cleanCode}". Please try again.`);
       }
 
       // Reset scan feedback after 2.5 s
@@ -120,21 +172,18 @@ export const POSRegister: FC = () => {
     consume: true,
   });
 
-  // ─── Keyboard shortcut: pressing Enter on the search field when it has an
-  //     exact-looking barcode/code value triggers scan lookup ─────────────────
+  // ─── Keyboard shortcut: pressing Enter on search triggers barcode lookup ────
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' && productSearch.trim().length >= 4) {
-        e.preventDefault();
-        // Try barcode match first, then fall through to first search result
-        if (searchResults.length === 1) {
-          addToCart(searchResults[0]);
-        } else {
-          handleBarcodeScan(productSearch.trim());
+      if (e.key === 'Enter') {
+        const query = productSearch.trim();
+        if (query.length >= 2) {
+          e.preventDefault();
+          handleBarcodeScan(query);
         }
       }
     },
-    [addToCart, handleBarcodeScan, productSearch, searchResults]
+    [handleBarcodeScan, productSearch]
   );
 
   // ─── Product text search with debounce ──────────────────────────────────────

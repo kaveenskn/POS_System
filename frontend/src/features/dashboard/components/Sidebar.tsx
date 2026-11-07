@@ -5,7 +5,6 @@ type SidebarProps = { expanded: boolean; onToggle: () => void };
 
 const navigation = [
   { label: 'Dashboard', icon: 'grid' as const, path: '/dashboard' },
-  { label: 'Products', icon: 'box' as const, path: '/products' },
   { label: 'Sales & Billing', icon: 'cart' as const, path: '/sales' },
   { label: 'Inventory', icon: 'package' as const, path: '/inventory' },
   { label: 'Expenses', icon: 'money' as const, path: '/expenses' },

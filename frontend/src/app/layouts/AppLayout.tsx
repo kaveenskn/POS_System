@@ -9,8 +9,8 @@ export function AppLayout() {
 
   const getPageTitle = (pathname: string): string => {
     if (pathname.startsWith('/dashboard')) return 'Dashboard Overview';
-    if (pathname.startsWith('/products')) return 'Products Catalog';
-    if (pathname.startsWith('/inventory')) return 'Inventory & Stock Management';
+    if (pathname.startsWith('/inventory') || pathname.startsWith('/products'))
+      return 'Inventory & Stock Management';
     if (pathname.startsWith('/sales')) return 'Sales & Billing POS';
     if (pathname.startsWith('/expenses')) return 'Expense Management';
     if (pathname.startsWith('/employees')) return 'Employee Salary Management';
