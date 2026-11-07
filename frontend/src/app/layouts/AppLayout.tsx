@@ -13,7 +13,6 @@ export function AppLayout() {
       return 'Inventory & Stock Management';
     if (pathname.startsWith('/sales')) return 'Sales & Billing POS';
     if (pathname.startsWith('/expenses')) return 'Expense Management';
-    if (pathname.startsWith('/employees')) return 'Employee Salary Management';
     if (pathname.startsWith('/reports')) return 'Reports & Financial Analytics';
     if (pathname.startsWith('/customers')) return 'Customer Directory';
     return 'TorqueLine POS';
