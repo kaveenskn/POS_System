@@ -48,7 +48,7 @@ export const LandingHero: FC<LandingHeroProps> = ({
 
       {/* Foreground Content Container */}
       <div className="relative z-20 w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 pt-28 pb-20 sm:pt-36 sm:pb-24 lg:py-40">
-        <div className="max-w-xl lg:max-w-2xl flex flex-col items-start">
+        <div className="max-w-xl lg:max-w-2xl flex flex-col items-start pt-[3px]">
           {/* Eyebrow */}
           <HeroEyebrow text="MOTORCYCLE SPARE PARTS" className="mb-4 sm:mb-6" />
 
