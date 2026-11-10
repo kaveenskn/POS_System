@@ -8,7 +8,7 @@ import { InventoryPage } from '../../features/inventory';
 import { SalesPage } from '../../features/sales';
 import { ExpensesPage } from '../../features/expenses';
 import { ReportsPage } from '../../features/reports';
-import { PlaceholderView } from '../../components/common/PlaceholderView';
+import { CustomersPage } from '../../features/customers';
 
 export function AppRouter() {
   return (
@@ -27,15 +27,7 @@ export function AppRouter() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
-          <Route
-            path="/customers"
-            element={
-              <PlaceholderView
-                title="Customer Directory"
-                description="Manage customer accounts, purchase history, and contact details."
-              />
-            }
-          />
+          <Route path="/customers" element={<CustomersPage />} />
           <Route path="/reports" element={<ReportsPage />} />
         </Route>
 

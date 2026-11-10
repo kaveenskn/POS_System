@@ -210,7 +210,7 @@ export const dashboardService = {
       const cached = localStorage.getItem(DASHBOARD_CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached) as DashboardResponse;
-        if (parsed && parsed.summary) {
+        if (parsed && parsed.summary && parsed.summary.total_revenue !== 33750) {
           return parsed;
         }
       }

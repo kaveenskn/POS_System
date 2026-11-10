@@ -7,108 +7,6 @@ import type {
   ExpenseUpdateInput,
 } from '../types/expense.types';
 
-const INITIAL_MOCK_EXPENSES: Expense[] = [
-  {
-    id: 1,
-    title: 'Shop Monthly Rent - Central Store Colombo',
-    category: 'rent',
-    amount: 85000.0,
-    expense_date: '2026-11-01',
-    payment_method: 'bank_transfer',
-    description: 'Monthly commercial shop space rent for Colombo 10 spare parts retail outlet',
-    created_at: '2026-11-01T09:00:00Z',
-    updated_at: '2026-11-01T09:00:00Z',
-  },
-  {
-    id: 2,
-    title: 'CEB Workshop Electricity Bill - Oct 2026',
-    category: 'electricity',
-    amount: 18450.0,
-    expense_date: '2026-11-03',
-    payment_method: 'bank_transfer',
-    description: 'Power consumption for compressor, diagnostic tooling, and showroom lighting',
-    created_at: '2026-11-03T11:30:00Z',
-    updated_at: '2026-11-03T11:30:00Z',
-  },
-  {
-    id: 3,
-    title: 'Staff Salary - Kasun Perera (Lead Mechanic)',
-    category: 'salary',
-    amount: 65000.0,
-    expense_date: '2026-11-02',
-    payment_method: 'bank_transfer',
-    description: 'Salary payment for month of October 2026 (ID #1)',
-    created_at: '2026-11-02T14:00:00Z',
-    updated_at: '2026-11-02T14:00:00Z',
-  },
-  {
-    id: 4,
-    title: 'Staff Salary - Nuwan Pradeep (Sales Assistant)',
-    category: 'salary',
-    amount: 48000.0,
-    expense_date: '2026-11-02',
-    payment_method: 'bank_transfer',
-    description: 'Salary payment after advance deduction for month 10/2026 (ID #2)',
-    created_at: '2026-11-02T14:15:00Z',
-    updated_at: '2026-11-02T14:15:00Z',
-  },
-  {
-    id: 5,
-    title: 'Motorcycle Spare Parts Transport & Freight',
-    category: 'transportation',
-    amount: 12500.0,
-    expense_date: '2026-11-04',
-    payment_method: 'cash',
-    description: 'Brembo and Motul stock transport from Colombo Port clearing yard',
-    created_at: '2026-11-04T10:00:00Z',
-    updated_at: '2026-11-04T10:00:00Z',
-  },
-  {
-    id: 6,
-    title: 'Dialog Business 100Mbps Fibre Broadband',
-    category: 'internet',
-    amount: 6850.0,
-    expense_date: '2026-11-04',
-    payment_method: 'card',
-    description: 'Monthly POS terminal, CCTV remote viewing, and inventory system internet',
-    created_at: '2026-11-04T16:20:00Z',
-    updated_at: '2026-11-04T16:20:00Z',
-  },
-  {
-    id: 7,
-    title: 'Hydraulic Bike Lift & Air Compressor Maintenance',
-    category: 'maintenance',
-    amount: 9500.0,
-    expense_date: '2026-11-05',
-    payment_method: 'cash',
-    description: 'Oil replacement and seal kit overhaul for 2-ton hydraulic servicing ramp',
-    created_at: '2026-11-05T13:45:00Z',
-    updated_at: '2026-11-05T13:45:00Z',
-  },
-  {
-    id: 8,
-    title: 'National Water Supply & Drainage Board Bill',
-    category: 'water',
-    amount: 3200.0,
-    expense_date: '2026-11-05',
-    payment_method: 'cash',
-    description: 'Workshop water utility bill for bike wash and sanitation',
-    created_at: '2026-11-05T15:10:00Z',
-    updated_at: '2026-11-05T15:10:00Z',
-  },
-  {
-    id: 9,
-    title: 'Office Stationery & Thermal Receipt Rolls',
-    category: 'other',
-    amount: 4600.0,
-    expense_date: '2026-11-06',
-    payment_method: 'cash',
-    description: '80mm POS thermal paper rolls (50 pack) and voucher clipboards',
-    created_at: '2026-11-06T09:30:00Z',
-    updated_at: '2026-11-06T09:30:00Z',
-  },
-];
-
 const LOCAL_STORAGE_KEY = 'torqueline_expenses_cache';
 
 function getLocalExpenses(): Expense[] {
@@ -116,12 +14,17 @@ function getLocalExpenses(): Expense[] {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        // Purge legacy mock entries from previous sessions
+        return parsed.filter(
+          (e) => !(e.id <= 9 && (e.amount === 85000 || e.amount === 18450 || e.amount === 65000))
+        );
+      }
     }
   } catch {
     // Ignore localStorage errors
   }
-  return [...INITIAL_MOCK_EXPENSES];
+  return [];
 }
 
 function saveLocalExpenses(expenses: Expense[]) {
@@ -144,10 +47,8 @@ export const expenseService = {
     try {
       const res = await apiClient.get<ExpenseListResponse>('/expenses', { params });
       if (res.data && Array.isArray(res.data.items)) {
-        if (res.data.items.length > 0) {
-          saveLocalExpenses(res.data.items);
-          return res.data;
-        }
+        saveLocalExpenses(res.data.items);
+        return res.data;
       }
     } catch {
       // Backend offline / sync fallback
