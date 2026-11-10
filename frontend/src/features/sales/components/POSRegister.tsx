@@ -186,6 +186,41 @@ export const POSRegister: FC = () => {
     [handleBarcodeScan, productSearch]
   );
 
+  const handleAddTypedProduct = useCallback(async () => {
+    const query = productSearch.trim();
+    if (!query) {
+      setError('Enter a product name, code, or barcode first.');
+      searchRef.current?.focus();
+      return;
+    }
+
+    setError(null);
+    try {
+      const exactProduct = await invoiceService.findByBarcode(query);
+      if (exactProduct) {
+        addToCart(exactProduct);
+        return;
+      }
+
+      const results = await invoiceService.searchProducts(query);
+      if (results.items.length === 1) {
+        addToCart(results.items[0]);
+        return;
+      }
+
+      if (results.items.length > 1) {
+        setSearchResults(results.items);
+        setShowDropdown(true);
+        setError('Select a product from the matching results.');
+        return;
+      }
+
+      setError(`No product found for "${query}".`);
+    } catch {
+      setError(`Unable to find a product for "${query}". Please try again.`);
+    }
+  }, [addToCart, productSearch]);
+
   // ─── Product text search with debounce ──────────────────────────────────────
   useEffect(() => {
     if (!productSearch.trim()) {
@@ -330,6 +365,13 @@ export const POSRegister: FC = () => {
                 〽
               </span>
             </div>
+            <button
+              type="button"
+              onClick={handleAddTypedProduct}
+              className="flex-shrink-0 rounded-xl bg-[#eb4826] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#ff5534]"
+            >
+              Add
+            </button>
 
             {/* Barcode scan indicator dot */}
             <div
