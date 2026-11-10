@@ -15,12 +15,21 @@ type IconName =
   | 'arrow-up-right'
   | 'check'
   | 'clock'
-  | 'tag';
+  | 'tag'
+  | 'truck';
 
 type IconProps = { name: IconName; size?: number };
 
 export function Icon({ name, size = 24 }: IconProps) {
   const paths: Record<IconName, JSX.Element> = {
+    truck: (
+      <>
+        <rect x="1" y="3" width="15" height="13" />
+        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+        <circle cx="5.5" cy="18.5" r="2.5" />
+        <circle cx="18.5" cy="18.5" r="2.5" />
+      </>
+    ),
     bell: <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />,
     box: <path d="m3 7 9-4 9 4-9 4-9-4Zm0 0v10l9 4 9-4V7M12 11v10" />,
     chart: <path d="M4 19V9m5 10V5m5 14v-7m5 7V3M2 19h20" />,

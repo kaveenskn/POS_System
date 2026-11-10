@@ -59,6 +59,26 @@ function saveLocalCustomers(items: Customer[]) {
   }
 }
 
+function deductLocalProductStock(items: { product_id: number; quantity: number }[]) {
+  try {
+    const raw = localStorage.getItem('torqueline_products_cache');
+    if (raw) {
+      const products = JSON.parse(raw);
+      if (Array.isArray(products)) {
+        for (const item of items) {
+          const match = products.find((p) => p.id === item.product_id);
+          if (match) {
+            match.quantity = Math.max(0, (match.quantity || 0) - item.quantity);
+          }
+        }
+        localStorage.setItem('torqueline_products_cache', JSON.stringify(products));
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export const invoiceService = {
   async searchProducts(query: string) {
     try {
@@ -115,6 +135,7 @@ export const invoiceService = {
       if (data && data.id) {
         const all = getLocalInvoices();
         saveLocalInvoices([data, ...all]);
+        deductLocalProductStock(payload.items);
         return data;
       }
     } catch {
@@ -176,6 +197,7 @@ export const invoiceService = {
     };
 
     saveLocalInvoices([newInvoice, ...all]);
+    deductLocalProductStock(payload.items);
     return newInvoice;
   },
 
@@ -271,6 +293,8 @@ export const invoiceService = {
       name: input.name,
       phone: input.phone ?? null,
       email: input.email ?? null,
+      company_name: input.company_name ?? null,
+      address: input.address ?? null,
       created_at: new Date().toISOString(),
     };
     const local = getLocalCustomers();

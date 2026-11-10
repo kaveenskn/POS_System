@@ -58,6 +58,10 @@ class Invoice(Base):
         "InvoiceItem", back_populates="invoice", cascade="all, delete-orphan"
     )
 
+    @property
+    def customer_name(self) -> str | None:
+        return self.customer.name if self.customer else None
+
 
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"

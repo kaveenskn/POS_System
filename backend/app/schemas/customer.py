@@ -7,6 +7,8 @@ class CustomerCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     phone: str = Field(..., min_length=1, max_length=50)
     email: str | None = Field(None, max_length=255)
+    company_name: str | None = Field(None, max_length=255)
+    address: str | None = Field(None, max_length=255)
 
 
 class CustomerResponse(BaseModel):
@@ -16,6 +18,8 @@ class CustomerResponse(BaseModel):
     name: str
     phone: str
     email: str | None
+    company_name: str | None = None
+    address: str | None = None
     created_at: datetime.datetime
 
 

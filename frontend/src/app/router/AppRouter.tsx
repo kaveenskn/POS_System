@@ -8,7 +8,7 @@ import { InventoryPage } from '../../features/inventory';
 import { SalesPage } from '../../features/sales';
 import { ExpensesPage } from '../../features/expenses';
 import { ReportsPage } from '../../features/reports';
-import { CustomersPage } from '../../features/customers';
+import { WholesalePage } from '../../features/wholesale';
 
 export function AppRouter() {
   return (
@@ -26,8 +26,9 @@ export function AppRouter() {
           <Route path="/products" element={<Navigate to="/inventory" replace />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/sales" element={<SalesPage />} />
+          <Route path="/wholesale" element={<WholesalePage />} />
+          <Route path="/customers" element={<Navigate to="/wholesale" replace />} />
           <Route path="/expenses" element={<ExpensesPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
           <Route path="/reports" element={<ReportsPage />} />
         </Route>
 

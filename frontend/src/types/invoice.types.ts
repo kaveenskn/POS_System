@@ -1,9 +1,11 @@
-// Customer types
+// Customer / Wholesale Client types
 export interface Customer {
   id: number;
   name: string;
   phone: string | null;
   email: string | null;
+  company_name?: string | null;
+  address?: string | null;
   created_at: string;
 }
 
@@ -11,6 +13,8 @@ export interface CustomerCreateInput {
   name: string;
   phone?: string;
   email?: string;
+  company_name?: string;
+  address?: string;
 }
 
 export interface CustomerListResponse {

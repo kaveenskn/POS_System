@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.invoice import Invoice, InvoiceItem, InvoiceStatus
-from app.models.product import Product
+from app.models.product import Product, StockMovement
 from app.repositories.invoice import InvoiceRepository
 from app.schemas.invoice import InvoiceCreate, InvoiceListResponse, InvoiceResponse
 
@@ -43,7 +43,13 @@ class InvoiceService:
                         f"available={product.quantity}, requested={item_in.quantity}"
                     ),
                 )
-            unit_price = float(product.selling_price)
+            if item_in.unit_price is not None:
+                unit_price = float(item_in.unit_price)
+            elif product.wholesale_price is not None and data.customer_id is not None:
+                unit_price = float(product.wholesale_price)
+            else:
+                unit_price = float(product.selling_price)
+
             cost_price = float(product.cost_price)
             line_total = unit_price * item_in.quantity
             subtotal += line_total
@@ -77,11 +83,23 @@ class InvoiceService:
             notes=data.notes,
         )
 
-        # Deduct stock
+        # Deduct stock and record audit movement
         for item_in in data.items:
             product = self.db.get(Product, item_in.product_id)
             if product:
+                prev_qty = product.quantity
                 product.quantity -= item_in.quantity
+                movement = StockMovement(
+                    product_id=product.id,
+                    movement_type="SALE",
+                    previous_quantity=prev_qty,
+                    adjustment_quantity=-item_in.quantity,
+                    new_quantity=product.quantity,
+                    reason=f"POS Sale Invoice {invoice_number}",
+                    notes=f"Sold {item_in.quantity} units via POS billing",
+                    user_name="Admin",
+                )
+                self.db.add(movement)
 
         # Assign invoice reference to items
         saved_invoice = self.repo.create(invoice, invoice_items)

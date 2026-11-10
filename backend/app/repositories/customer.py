@@ -24,7 +24,12 @@ class CustomerRepository:
 
         if search:
             pattern = f"%{search}%"
-            search_filter = Customer.name.ilike(pattern) | Customer.phone.ilike(pattern)
+            search_filter = (
+                Customer.name.ilike(pattern)
+                | Customer.phone.ilike(pattern)
+                | Customer.company_name.ilike(pattern)
+                | Customer.email.ilike(pattern)
+            )
             stmt = stmt.where(search_filter)
             count_stmt = count_stmt.where(search_filter)
 

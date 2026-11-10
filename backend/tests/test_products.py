@@ -113,3 +113,26 @@ def test_list_products_and_search(client: TestClient):
     assert search_res.status_code == 200
     assert search_res.json()["total"] == 1
     assert search_res.json()["items"][0]["brand"] == "NGK"
+
+
+def test_get_product_by_barcode_scan(client: TestClient):
+    create_res = client.post(
+        "/api/v1/products",
+        json={
+            "name": "Brembo Dot 4 Brake Fluid",
+            "code": "BRM-BF-500",
+            "brand": "Brembo",
+            "cost_price": 1200.0,
+            "selling_price": 1850.0,
+            "barcode": "2008492019485",
+            "quantity": 25,
+        },
+    )
+    assert create_res.status_code == 201
+    bc = create_res.json()["barcode"]
+
+    # Scan by barcode
+    scan_res = client.get(f"/api/v1/products/barcode/{bc}")
+    assert scan_res.status_code == 200
+    assert scan_res.json()["code"] == "BRM-BF-500"
+    assert scan_res.json()["name"] == "Brembo Dot 4 Brake Fluid"

@@ -1,0 +1,2 @@
+export { WholesalePage } from './WholesalePage';
+

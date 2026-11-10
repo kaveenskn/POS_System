@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import type { Product, ProductCreateInput } from '../../../types/product.types';
+import { generateAutoBarcode, generateAutoSku } from '../../../utils/barcodeGenerator';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
   const [brand, setBrand] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
+  const [wholesalePrice, setWholesalePrice] = useState('');
   const [quantity, setQuantity] = useState('0');
   const [unit, setUnit] = useState('Pieces');
   const [minStockLevel, setMinStockLevel] = useState('5');
@@ -64,6 +66,7 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
       setBrand(product.brand || '');
       setCostPrice(String(product.cost_price ?? ''));
       setSellingPrice(String(product.selling_price ?? ''));
+      setWholesalePrice(product.wholesale_price ? String(product.wholesale_price) : '');
       setQuantity(String(product.quantity ?? 0));
       setUnit(product.unit || 'Pieces');
       setMinStockLevel(String(product.min_stock_level ?? 5));
@@ -71,13 +74,14 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
       setCompatibleModels(product.compatible_models || '');
     } else {
       setName('');
-      setCode('');
-      setBarcode('');
+      setCode(generateAutoSku('Braking System', 'TL'));
+      setBarcode(generateAutoBarcode());
       setCategory('Braking System');
       setCustomCategory('');
       setBrand('');
       setCostPrice('');
       setSellingPrice('');
+      setWholesalePrice('');
       setQuantity('10');
       setUnit('Pieces');
       setMinStockLevel('5');
@@ -89,18 +93,14 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Auto generate barcode if empty
+  // Auto generate unique barcode
   const handleGenerateBarcode = () => {
-    const random = Math.floor(100000000000 + Math.random() * 900000000000);
-    setBarcode(String(random));
+    setBarcode(generateAutoBarcode());
   };
 
   // Auto generate code from name and brand
   const handleGenerateCode = () => {
-    const b = (brand || 'PRD').substring(0, 3).toUpperCase();
-    const n = (name || 'PART').substring(0, 3).toUpperCase();
-    const rand = Math.floor(100 + Math.random() * 900);
-    setCode(`${b}-${n}-${rand}`);
+    setCode(generateAutoSku(category, brand || 'TL'));
   };
 
   const cost = parseFloat(costPrice) || 0;
@@ -133,12 +133,13 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
       await onSave({
         name: trimmedName,
         code: trimmedCode,
-        barcode: barcode.trim() || null,
+        barcode: barcode.trim() || generateAutoBarcode(),
         barcode_type: 'CODE128',
         category: finalCategory,
         brand: brand.trim() || 'TorqueLine',
         cost_price: cost,
         selling_price: sell,
+        wholesale_price: wholesalePrice ? parseFloat(wholesalePrice) : null,
         quantity: parseInt(quantity, 10) || 0,
         unit: unit.trim() || 'Pieces',
         min_stock_level: parseInt(minStockLevel, 10) || 0,
@@ -290,9 +291,9 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
           </div>
 
           {/* Row 4: Pricing */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800">
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Cost Price (Rs.)</label>
+              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Cost Price (Rs.) *</label>
               <input
                 type="number"
                 min="0"
@@ -306,7 +307,7 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Selling Price (Rs.) *</label>
+              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Retail Price (Rs.) *</label>
               <input
                 type="number"
                 min="0"
@@ -320,7 +321,20 @@ export const ProductFormModal: FC<ProductFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Gross Margin</label>
+              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Wholesale Price (Rs.)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={wholesalePrice}
+                onChange={(e) => setWholesalePrice(e.target.value)}
+                placeholder="Bulk rate"
+                className="w-full font-mono bg-[#0b0c10] border border-zinc-700 rounded-xl px-3 py-2 text-sm text-amber-400 font-semibold focus:outline-none focus:border-[#eb4826]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Retail Margin</label>
               <div className="px-3 py-2 rounded-xl bg-zinc-800/80 border border-zinc-700 text-sm font-mono text-zinc-300">
                 {profitMargin}%
                 <span className="text-xs text-zinc-500 ml-1">
