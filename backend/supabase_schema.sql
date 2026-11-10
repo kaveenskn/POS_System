@@ -200,6 +200,68 @@ CREATE TABLE IF NOT EXISTS public.supplier_payments (
 
 CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON public.supplier_payments (supplier_name);
 
+-- 9. CUSTOMERS
+CREATE TABLE IF NOT EXISTS public.customers (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) UNIQUE,
+    email VARCHAR(255),
+    address TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_customers_name ON public.customers (name);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers (phone);
+
+-- 10. INVOICES AND INVOICE ITEMS (POS Terminal Billing)
+CREATE TABLE IF NOT EXISTS public.invoices (
+    id BIGSERIAL PRIMARY KEY,
+    invoice_number VARCHAR(50) NOT NULL UNIQUE,
+    customer_id BIGINT REFERENCES public.customers(id) ON DELETE SET NULL,
+    subtotal NUMERIC(12, 2) NOT NULL,
+    discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    total_amount NUMERIC(12, 2) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'cash',
+    amount_paid NUMERIC(12, 2) NOT NULL,
+    change_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    status VARCHAR(50) NOT NULL DEFAULT 'completed',
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number ON public.invoices (invoice_number);
+CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON public.invoices (created_at);
+
+CREATE TABLE IF NOT EXISTS public.invoice_items (
+    id BIGSERIAL PRIMARY KEY,
+    invoice_id BIGINT NOT NULL REFERENCES public.invoices(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+    product_name VARCHAR(255) NOT NULL,
+    product_code VARCHAR(100) NOT NULL,
+    unit_price NUMERIC(12, 2) NOT NULL,
+    cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    line_total NUMERIC(12, 2) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON public.invoice_items (invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_items_product_id ON public.invoice_items (product_id);
+
+-- 11. EXPENSES
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    expense_date DATE NOT NULL,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'cash',
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses (category);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON public.expenses (expense_date);
+
 -- =============================================================================
 -- INITIAL DATA SEEDING (Run only if tables are empty)
 -- =============================================================================

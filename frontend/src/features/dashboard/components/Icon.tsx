@@ -10,7 +10,12 @@ type IconName =
   | 'search'
   | 'trend'
   | 'warning'
-  | 'cart';
+  | 'cart'
+  | 'refresh'
+  | 'arrow-up-right'
+  | 'check'
+  | 'clock'
+  | 'tag';
 
 type IconProps = { name: IconName; size?: number };
 
@@ -58,6 +63,33 @@ export function Icon({ name, size = 24 }: IconProps) {
         <path d="M3 4h2l2.2 11h10.5L20 8H6" />
         <circle cx="9" cy="19" r="1" />
         <circle cx="17" cy="19" r="1" />
+      </>
+    ),
+    refresh: (
+      <>
+        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+        <path d="M16 16h5v5" />
+      </>
+    ),
+    'arrow-up-right': (
+      <>
+        <line x1="7" y1="17" x2="17" y2="7" />
+        <polyline points="7 7 17 7 17 17" />
+      </>
+    ),
+    check: <polyline points="20 6 9 17 4 12" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </>
+    ),
+    tag: (
+      <>
+        <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
+        <path d="M7 7h.01" />
       </>
     ),
   };

@@ -1,8 +1,13 @@
 import datetime
 import logging
 from sqlalchemy import text
+import app.models  # noqa: F401
 from app.db.base import Base
 from app.db.session import _build_engine, _build_session_factory
+from app.models.customer import Customer  # noqa: F401
+from app.models.employee import Employee, EmployeeSalary  # noqa: F401
+from app.models.expense import Expense  # noqa: F401
+from app.models.invoice import Invoice, InvoiceItem  # noqa: F401
 from app.models.product import Brand, Category, Product, ProductActivity, StockMovement
 from app.models.report import Purchase, PurchaseItem, Sale, SaleItem, SupplierPayment
 
