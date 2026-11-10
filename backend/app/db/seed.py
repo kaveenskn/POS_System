@@ -377,3 +377,24 @@ def seed_database_if_empty(session: Session) -> None:
         session.add_all([item3, item4])
         session.commit()
 
+    # 6. Seed Customers
+    from app.models.customer import Customer
+    customers_count = session.scalar(select(Customer.id).limit(1))
+    if not customers_count:
+        sample_customers = [
+            Customer(
+                name="Sampath Kumara",
+                phone="0771234567",
+                email="sampath@gmail.com",
+                address="No. 42, Galle Road, Colombo 03",
+            ),
+            Customer(
+                name="Ranjith Motors & Workshop",
+                phone="0718899001",
+                email="ranjith@motors.lk",
+                address="No. 118, Kandy Road, Kelaniya",
+            ),
+        ]
+        session.add_all(sample_customers)
+        session.commit()
+

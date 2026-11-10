@@ -9,123 +9,25 @@ import type {
   InvoiceResponse,
 } from '../types/invoice.types';
 
-const INITIAL_MOCK_INVOICES: InvoiceResponse[] = [
-  {
-    id: 1,
-    invoice_number: 'INV-20261106-0001',
-    customer_id: null,
-    customer_name: 'Walk-in Customer',
-    subtotal: 10250.0,
-    discount_amount: 250.0,
-    total_amount: 10000.0,
-    payment_method: 'cash',
-    amount_paid: 10000.0,
-    change_amount: 0.0,
-    status: 'completed',
-    notes: 'Counter walk-in customer sale',
-    created_at: '2026-11-06T14:35:00Z',
-    items: [
-      {
-        id: 1,
-        product_id: 1,
-        product_name: 'Brembo Sintered Front Brake Pads',
-        product_code: 'BRM-BP-001',
-        unit_price: 2650.0,
-        cost_price: 1850.0,
-        quantity: 2,
-        line_total: 5300.0,
-      },
-      {
-        id: 2,
-        product_id: 2,
-        product_name: 'Motul 7100 4T 10W-40 100% Synthetic 1L',
-        product_code: 'MOT-OIL-7100',
-        unit_price: 4950.0,
-        cost_price: 3800.0,
-        quantity: 1,
-        line_total: 4950.0,
-      },
-    ],
-  },
-  {
-    id: 2,
-    invoice_number: 'INV-20261105-0002',
-    customer_id: null,
-    customer_name: 'Sampath Kumara',
-    subtotal: 18900.0,
-    discount_amount: 0.0,
-    total_amount: 18900.0,
-    payment_method: 'card',
-    amount_paid: 18900.0,
-    change_amount: 0.0,
-    status: 'completed',
-    notes: 'KTM Duke 390 drive chain replacement',
-    created_at: '2026-11-05T16:15:00Z',
-    items: [
-      {
-        id: 3,
-        product_id: 4,
-        product_name: 'DID 520VX3 Pro-Street X-Ring Drive Chain 120L (Gold)',
-        product_code: 'DID-CHN-520VX3',
-        unit_price: 18900.0,
-        cost_price: 14500.0,
-        quantity: 1,
-        line_total: 18900.0,
-      },
-    ],
-  },
-  {
-    id: 3,
-    invoice_number: 'INV-20261104-0003',
-    customer_id: null,
-    customer_name: 'Workshop Service Customer',
-    subtotal: 5150.0,
-    discount_amount: 300.0,
-    total_amount: 4850.0,
-    payment_method: 'bank_transfer',
-    amount_paid: 5000.0,
-    change_amount: 150.0,
-    status: 'completed',
-    notes: 'Full routine tune-up service kit',
-    created_at: '2026-11-04T11:20:00Z',
-    items: [
-      {
-        id: 4,
-        product_id: 8,
-        product_name: 'Yamaha Genuine Spin-On Engine Oil Filter',
-        product_code: 'YAM-OF-21C',
-        unit_price: 750.0,
-        cost_price: 450.0,
-        quantity: 2,
-        line_total: 1500.0,
-      },
-      {
-        id: 5,
-        product_id: 3,
-        product_name: 'NGK Laser Iridium Spark Plug CR9EIA-9',
-        product_code: 'NGK-SPK-CR9',
-        unit_price: 1825.0,
-        cost_price: 1100.0,
-        quantity: 2,
-        line_total: 3650.0,
-      },
-    ],
-  },
-];
-
 const INVOICES_STORAGE_KEY = 'torqueline_invoices_cache';
+const CUSTOMERS_STORAGE_KEY = 'torqueline_customers_cache';
 
 function getLocalInvoices(): InvoiceResponse[] {
   try {
     const raw = localStorage.getItem(INVOICES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        // Purge any legacy hardcoded mock entries from previous sessions
+        return parsed.filter(
+          (i) => !(i.id <= 3 && (i.total_amount === 10000 || i.total_amount === 18900 || i.total_amount === 4850))
+        );
+      }
     }
   } catch {
     // Ignore localStorage error
   }
-  return [...INITIAL_MOCK_INVOICES];
+  return [];
 }
 
 function saveLocalInvoices(items: InvoiceResponse[]) {
@@ -133,6 +35,47 @@ function saveLocalInvoices(items: InvoiceResponse[]) {
     localStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify(items));
   } catch {
     // Ignore localStorage error
+  }
+}
+
+function getLocalCustomers(): Customer[] {
+  try {
+    const raw = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // Ignore localStorage error
+  }
+  return [];
+}
+
+function saveLocalCustomers(items: Customer[]) {
+  try {
+    localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // Ignore localStorage error
+  }
+}
+
+function deductLocalProductStock(items: { product_id: number; quantity: number }[]) {
+  try {
+    const raw = localStorage.getItem('torqueline_products_cache');
+    if (raw) {
+      const products = JSON.parse(raw);
+      if (Array.isArray(products)) {
+        for (const item of items) {
+          const match = products.find((p) => p.id === item.product_id);
+          if (match) {
+            match.quantity = Math.max(0, (match.quantity || 0) - item.quantity);
+          }
+        }
+        localStorage.setItem('torqueline_products_cache', JSON.stringify(products));
+      }
+    }
+  } catch {
+    // ignore
   }
 }
 
@@ -192,6 +135,7 @@ export const invoiceService = {
       if (data && data.id) {
         const all = getLocalInvoices();
         saveLocalInvoices([data, ...all]);
+        deductLocalProductStock(payload.items);
         return data;
       }
     } catch {
@@ -253,6 +197,7 @@ export const invoiceService = {
     };
 
     saveLocalInvoices([newInvoice, ...all]);
+    deductLocalProductStock(payload.items);
     return newInvoice;
   },
 
@@ -265,7 +210,7 @@ export const invoiceService = {
   }): Promise<InvoiceListResponse> {
     try {
       const { data } = await apiClient.get<InvoiceListResponse>('/invoices', { params });
-      if (data && Array.isArray(data.items) && data.items.length > 0) {
+      if (data && Array.isArray(data.items)) {
         saveLocalInvoices(data.items);
         return data;
       }
@@ -316,34 +261,44 @@ export const invoiceService = {
       const { data } = await apiClient.get<CustomerListResponse>('/customers', {
         params: { search, limit: 50 },
       });
-      if (data && Array.isArray(data.items)) return data;
+      if (data && Array.isArray(data.items)) {
+        saveLocalCustomers(data.items);
+        return data;
+      }
     } catch {
       // Offline fallback
     }
 
+    const items = getLocalCustomers();
     return {
-      items: [
-        { id: 1, name: 'Sampath Kumara', phone: '077 123 4567', email: 'sampath@gmail.com', created_at: new Date().toISOString() },
-        { id: 2, name: 'Ranjith Motors', phone: '071 889 9001', email: 'ranjith@motors.lk', created_at: new Date().toISOString() },
-      ],
-      total: 2,
+      items,
+      total: items.length,
     };
   },
 
   async createCustomer(input: CustomerCreateInput): Promise<Customer> {
     try {
       const { data } = await apiClient.post<Customer>('/customers', input);
-      if (data) return data;
+      if (data) {
+        const local = getLocalCustomers();
+        saveLocalCustomers([data, ...local]);
+        return data;
+      }
     } catch {
       // Offline fallback
     }
 
-    return {
+    const newCustomer: Customer = {
       id: Date.now(),
       name: input.name,
       phone: input.phone ?? null,
       email: input.email ?? null,
+      company_name: input.company_name ?? null,
+      address: input.address ?? null,
       created_at: new Date().toISOString(),
     };
+    const local = getLocalCustomers();
+    saveLocalCustomers([newCustomer, ...local]);
+    return newCustomer;
   },
 };

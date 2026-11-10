@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     customers,
+    dashboard,
     employees,
     expenses,
     financial,
@@ -9,11 +10,14 @@ from app.api.v1.endpoints import (
     invoices,
     products,
     reports,
+    wholesale,
 )
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(products.router, prefix="/products", tags=["products"])
+api_router.include_router(wholesale.router, prefix="/wholesale", tags=["wholesale"])
 api_router.include_router(customers.router, prefix="/customers", tags=["customers"])
 api_router.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 api_router.include_router(expenses.router, prefix="/expenses", tags=["expenses"])

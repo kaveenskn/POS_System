@@ -1,4 +1,14 @@
 from app.schemas.customer import CustomerCreate, CustomerListResponse, CustomerResponse
+from app.schemas.dashboard import (
+    CategoryBreakdown,
+    DashboardResponse,
+    DashboardSummary,
+    LowStockAlert,
+    MonthlyTrendPoint,
+    RecentActivity,
+    SalesTrendPoint,
+    TopSellingProduct,
+)
 from app.schemas.employee import (
     EmployeeCreate,
     EmployeeListResponse,

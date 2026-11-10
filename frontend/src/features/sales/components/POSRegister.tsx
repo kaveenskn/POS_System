@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
-import type { CartItem, InvoiceResponse, PaymentMethod } from '../../../types/invoice.types';
+import type {
+  CartItem,
+  Customer,
+  CustomerCreateInput,
+  InvoiceResponse,
+  PaymentMethod,
+} from '../../../types/invoice.types';
 import type { Product } from '../../../types/product.types';
 import { invoiceService } from '../../../services/invoiceService';
 import { useBarcodeScanner } from '../../../hooks/useBarcodeScanner';
@@ -29,6 +35,21 @@ export const POSRegister: FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completedInvoice, setCompletedInvoice] = useState<InvoiceResponse | null>(null);
+
+  // Wholesale Customer selector
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
+  const [quickAddForm, setQuickAddForm] = useState<CustomerCreateInput>({
+    name: '',
+    phone: '',
+    company_name: '',
+    address: '',
+  });
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
+  const customerSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Barcode scanner state
   const [scanState, setScanState] = useState<ScanState>('idle');
@@ -240,10 +261,51 @@ export const POSRegister: FC = () => {
     }, 300);
   }, [productSearch]);
 
+  // Customer suggestions debounce
+  useEffect(() => {
+    if (customerSearchTimeout.current) clearTimeout(customerSearchTimeout.current);
+    customerSearchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await invoiceService.getCustomers(customerSearch.trim() || undefined);
+        setCustomerSuggestions(res.items || []);
+      } catch {
+        setCustomerSuggestions([]);
+      }
+    }, 200);
+  }, [customerSearch]);
+
+  const handleQuickAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickAddForm.name.trim() || !quickAddForm.phone?.trim()) {
+      setError('Wholesale customer contact name and phone number are required.');
+      return;
+    }
+    setIsQuickAdding(true);
+    try {
+      const created = await invoiceService.createCustomer({
+        name: quickAddForm.name.trim(),
+        phone: quickAddForm.phone.trim(),
+        company_name: quickAddForm.company_name?.trim() || undefined,
+        address: quickAddForm.address?.trim() || undefined,
+      });
+      setSelectedCustomer(created);
+      setCustomerSearch(created.name);
+      setIsQuickAddModalOpen(false);
+      setQuickAddForm({ name: '', phone: '', company_name: '', address: '' });
+      setShowCustomerDropdown(false);
+      setError(null);
+    } catch {
+      setError('Failed to create wholesale customer.');
+    } finally {
+      setIsQuickAdding(false);
+    }
+  };
+
   // Cleanup timers on unmount
   useEffect(
     () => () => {
       if (scanFeedbackTimer.current) clearTimeout(scanFeedbackTimer.current);
+      if (customerSearchTimeout.current) clearTimeout(customerSearchTimeout.current);
     },
     []
   );
@@ -268,6 +330,8 @@ export const POSRegister: FC = () => {
     setDiscount('0');
     setAmountPaid('');
     setNotes('');
+    setSelectedCustomer(null);
+    setCustomerSearch('');
     setError(null);
   };
 
@@ -280,6 +344,7 @@ export const POSRegister: FC = () => {
     setIsSubmitting(true);
     try {
       const invoice = await invoiceService.createInvoice({
+        customer_id: selectedCustomer?.id,
         items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
         discount_amount: discountAmt,
         payment_method: paymentMethod,
@@ -548,6 +613,125 @@ export const POSRegister: FC = () => {
         <div className="bg-[#14161d] border border-zinc-800 rounded-2xl p-5 space-y-4">
           <h3 className="text-base font-bold text-white">Payment</h3>
 
+          {/* Wholesale Customer Selection */}
+          <div className="border-b border-zinc-800/80 pb-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-zinc-400">
+                Customer / Wholesale Account
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsQuickAddModalOpen(true)}
+                className="text-[11px] text-[#eb4826] hover:text-[#ff5534] font-semibold"
+              >
+                + Quick Add Wholesale
+              </button>
+            </div>
+
+            {selectedCustomer ? (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="text-emerald-400">🏢</span>
+                    <span>{selectedCustomer.name}</span>
+                    {selectedCustomer.company_name && (
+                      <span className="text-[11px] font-normal text-amber-400">
+                        ({selectedCustomer.company_name})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                    📞 {selectedCustomer.phone || 'No phone'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCustomer(null);
+                    setCustomerSearch('');
+                  }}
+                  className="text-xs text-zinc-400 hover:text-white px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 transition"
+                  title="Switch to Walk-in customer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setShowCustomerDropdown(true);
+                  }}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  placeholder="Select or search Wholesale Customer..."
+                  className="w-full bg-[#0b0c10] border border-zinc-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#eb4826]"
+                />
+
+                {showCustomerDropdown && (
+                  <div className="absolute z-40 left-0 right-0 mt-1 bg-[#1a1c24] border border-zinc-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto">
+                    <button
+                      type="button"
+                      onMouseDown={() => {
+                        setSelectedCustomer(null);
+                        setCustomerSearch('');
+                        setShowCustomerDropdown(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs hover:bg-zinc-800 text-zinc-400 hover:text-white border-b border-zinc-800 flex items-center justify-between"
+                    >
+                      <span>🚶 Walk-in Retail Customer</span>
+                      <span className="text-[10px] text-zinc-500">Default</span>
+                    </button>
+
+                    {customerSuggestions.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={() => {
+                          setSelectedCustomer(c);
+                          setCustomerSearch(c.name);
+                          setShowCustomerDropdown(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-zinc-800 border-b border-zinc-800/40 text-xs transition"
+                      >
+                        <div className="font-semibold text-white flex items-center gap-1.5">
+                          <span className="text-emerald-400">🏢</span>
+                          <span>{c.name}</span>
+                          {c.company_name && (
+                            <span className="text-[11px] text-amber-400 font-normal">[{c.company_name}]</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
+                          <span>📞 {c.phone}</span>
+                          {c.address && <span>• {c.address}</span>}
+                        </div>
+                      </button>
+                    ))}
+
+                    {customerSuggestions.length === 0 && customerSearch.trim() && (
+                      <div className="p-3 text-center text-xs text-zinc-500">
+                        No wholesale customer found.
+                        <button
+                          type="button"
+                          onMouseDown={() => {
+                            setShowCustomerDropdown(false);
+                            setQuickAddForm((p) => ({ ...p, name: customerSearch.trim() }));
+                            setIsQuickAddModalOpen(true);
+                          }}
+                          className="block mx-auto mt-1 text-[#eb4826] font-semibold hover:underline"
+                        >
+                          + Register "{customerSearch}"
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Totals */}
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-zinc-400">
@@ -718,6 +902,101 @@ export const POSRegister: FC = () => {
           )}
         </div>
       </div>
+
+      {/* ── Modal: Quick Add Wholesale Customer ──────────────────────────────── */}
+      {isQuickAddModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-sm bg-[#17181c] border border-zinc-700 rounded-2xl shadow-2xl p-5 text-white space-y-3.5">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+              <h4 className="text-sm font-bold">Quick Add Wholesale Customer</h4>
+              <button
+                type="button"
+                onClick={() => setIsQuickAddModalOpen(false)}
+                className="text-zinc-400 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickAddCustomer} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                  Contact Person / Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={quickAddForm.name}
+                  onChange={(e) => setQuickAddForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Sunil Jayawardena"
+                  className="w-full bg-[#121316] border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#eb4826]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                  Company / Workshop Name
+                </label>
+                <input
+                  type="text"
+                  value={quickAddForm.company_name ?? ''}
+                  onChange={(e) => setQuickAddForm((p) => ({ ...p, company_name: e.target.value }))}
+                  placeholder="e.g. Sunil Motors"
+                  className="w-full bg-[#121316] border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#eb4826]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                  Phone Number <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={quickAddForm.phone ?? ''}
+                  onChange={(e) => setQuickAddForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="e.g. 0771234567"
+                  className="w-full bg-[#121316] border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#eb4826]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
+                  Address / City
+                </label>
+                <input
+                  type="text"
+                  value={quickAddForm.address ?? ''}
+                  onChange={(e) => setQuickAddForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="e.g. Kadawatha"
+                  className="w-full bg-[#121316] border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#eb4826]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickAddModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isQuickAdding}
+                  className="px-3 py-1.5 rounded-lg bg-[#eb4826] hover:bg-[#ff5733] text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {isQuickAdding ? 'Adding…' : 'Add & Select'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Receipt Modal */}
       {completedInvoice && (

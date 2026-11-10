@@ -13,7 +13,7 @@ class InvoiceRepository:
     def get_by_id(self, invoice_id: int) -> Invoice | None:
         stmt = (
             select(Invoice)
-            .options(selectinload(Invoice.items))
+            .options(selectinload(Invoice.items), selectinload(Invoice.customer))
             .where(Invoice.id == invoice_id)
         )
         return self.db.execute(stmt).scalar_one_or_none()
@@ -33,7 +33,7 @@ class InvoiceRepository:
         date_from: datetime.date | None = None,
         date_to: datetime.date | None = None,
     ) -> tuple[list[Invoice], int]:
-        stmt = select(Invoice).options(selectinload(Invoice.items))
+        stmt = select(Invoice).options(selectinload(Invoice.items), selectinload(Invoice.customer))
         count_stmt = select(func.count()).select_from(Invoice)
 
         if search:

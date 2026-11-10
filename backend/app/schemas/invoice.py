@@ -8,6 +8,7 @@ from app.models.invoice import InvoiceStatus, PaymentMethod
 class InvoiceItemCreate(BaseModel):
     product_id: int = Field(..., gt=0)
     quantity: int = Field(..., gt=0)
+    unit_price: float | None = Field(None, ge=0)
 
 
 class InvoiceCreate(BaseModel):
@@ -38,6 +39,7 @@ class InvoiceResponse(BaseModel):
     id: int
     invoice_number: str
     customer_id: int | None
+    customer_name: str | None = None
     subtotal: float
     discount_amount: float
     total_amount: float
