@@ -15,7 +15,6 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [chartPeriod, setChartPeriod] = useState<'7days' | '6months'>('7days');
 
   const fetchMetrics = useCallback(async (isManualRefresh = false) => {
@@ -24,14 +23,12 @@ export function DashboardPage() {
     } else {
       setIsLoading(true);
     }
-    setError(null);
 
     try {
       const response = await dashboardService.getDashboardMetrics();
       setData(response);
     } catch (err) {
-      console.error('Failed to load dashboard metrics:', err);
-      setError('Unable to synchronize with backend POS database. Please verify your connection.');
+      console.warn('Dashboard sync background notice:', err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -49,7 +46,7 @@ export function DashboardPage() {
     day: 'numeric',
   }).format(new Date());
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="space-y-6 animate-pulse">
         {/* Banner Skeleton */}
@@ -70,25 +67,6 @@ export function DashboardPage() {
           <div className="h-64 rounded-2xl bg-[#17181c] border border-[#292b31]" />
           <div className="h-64 rounded-2xl bg-[#17181c] border border-[#292b31]" />
         </div>
-      </div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="rounded-2xl border border-rose-500/30 bg-[#17181c] p-8 text-center max-w-xl mx-auto my-12">
-        <div className="w-14 h-14 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto mb-4">
-          <Icon name="warning" size={28} />
-        </div>
-        <h2 className="text-xl font-bold text-white mb-2">POS Database Connection Issue</h2>
-        <p className="text-sm text-[#8a8d99] mb-6">{error}</p>
-        <button
-          type="button"
-          onClick={() => void fetchMetrics(true)}
-          className="px-5 py-2.5 rounded-xl bg-[#f04b2f] hover:bg-[#ff6547] text-white font-semibold text-sm transition-all shadow-lg"
-        >
-          Retry Connection
-        </button>
       </div>
     );
   }
