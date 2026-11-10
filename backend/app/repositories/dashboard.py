@@ -406,3 +406,4 @@ class DashboardRepository:
             category_distribution=category_distribution,
             last_updated=now,
         )
+

@@ -124,3 +124,4 @@ export function RecentInvoicesCard({ invoices }: RecentInvoicesCardProps) {
     </div>
   );
 }
+

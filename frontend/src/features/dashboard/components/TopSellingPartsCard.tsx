@@ -88,3 +88,4 @@ export function TopSellingPartsCard({ products }: TopSellingPartsCardProps) {
     </div>
   );
 }
+

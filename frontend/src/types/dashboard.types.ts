@@ -79,3 +79,4 @@ export interface DashboardResponse {
   category_distribution: CategoryBreakdown[];
   last_updated: string;
 }
+

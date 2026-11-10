@@ -19,3 +19,4 @@ def get_dashboard_metrics(
     """
     service = DashboardService(db)
     return service.get_metrics()
+

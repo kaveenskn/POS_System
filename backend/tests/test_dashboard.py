@@ -117,3 +117,4 @@ def test_dashboard_metrics_with_data(client: TestClient):
     alert = dash_data["low_stock_alerts"][0]
     assert alert["code"] == "BRM-BP-001"
     assert alert["quantity"] == 2
+

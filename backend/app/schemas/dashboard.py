@@ -98,3 +98,4 @@ class DashboardResponse(BaseModel):
     low_stock_alerts: list[LowStockAlert]
     category_distribution: list[CategoryBreakdown]
     last_updated: datetime.datetime
+

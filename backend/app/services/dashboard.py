@@ -11,3 +11,4 @@ class DashboardService:
 
     def get_metrics(self) -> DashboardResponse:
         return self.repo.get_dashboard_metrics()
+

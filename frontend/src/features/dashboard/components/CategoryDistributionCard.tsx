@@ -60,3 +60,4 @@ export function CategoryDistributionCard({ categories }: CategoryDistributionCar
     </div>
   );
 }
+
