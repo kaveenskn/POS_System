@@ -27,6 +27,7 @@ class InvoiceService:
         # Validate products and check stock
         invoice_items: list[InvoiceItem] = []
         subtotal = 0.0
+        total_item_discounts = 0.0
 
         for item_in in data.items:
             product: Product | None = self.db.get(Product, item_in.product_id)
@@ -51,8 +52,13 @@ class InvoiceService:
                 unit_price = float(product.selling_price)
 
             cost_price = float(product.cost_price)
-            line_total = unit_price * item_in.quantity
-            subtotal += line_total
+            gross_line = unit_price * item_in.quantity
+            item_discount = float(item_in.discount_amount or 0.0)
+            item_discount = max(0.0, min(item_discount, gross_line))
+            line_total = max(gross_line - item_discount, 0.0)
+
+            subtotal += gross_line
+            total_item_discounts += item_discount
 
             invoice_items.append(
                 InvoiceItem(
@@ -66,15 +72,19 @@ class InvoiceService:
                 )
             )
 
-        discount = float(data.discount_amount)
-        total_amount = max(subtotal - discount, 0.0)
+        bill_discount = float(data.discount_amount)
+        subtotal_after_items = max(subtotal - total_item_discounts, 0.0)
+        bill_discount = max(0.0, min(bill_discount, subtotal_after_items))
+        total_discount = total_item_discounts + bill_discount
+
+        total_amount = max(subtotal - total_discount, 0.0)
         change_amount = float(data.amount_paid) - total_amount
 
         invoice = Invoice(
             invoice_number=invoice_number,
             customer_id=data.customer_id,
             subtotal=subtotal,
-            discount_amount=discount,
+            discount_amount=total_discount,
             total_amount=total_amount,
             payment_method=data.payment_method,
             amount_paid=float(data.amount_paid),

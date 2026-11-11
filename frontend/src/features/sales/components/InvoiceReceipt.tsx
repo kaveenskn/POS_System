@@ -54,52 +54,74 @@ export const InvoiceReceipt: FC<InvoiceReceiptProps> = ({ invoice, onClose, onPr
           {/* Items */}
           <div className="border-t border-dashed border-zinc-700 pt-3 mt-2">
             <div className="grid grid-cols-12 text-xs font-semibold text-zinc-400 mb-1">
-              <span className="col-span-6">Item</span>
+              <span className="col-span-5">Item</span>
               <span className="col-span-2 text-center">Qty</span>
               <span className="col-span-2 text-right">Price</span>
-              <span className="col-span-2 text-right">Total</span>
+              <span className="col-span-3 text-right">Total</span>
             </div>
-            {invoice.items.map((item) => (
-              <div key={item.id} className="grid grid-cols-12 text-xs py-1 border-b border-zinc-800">
-                <div className="col-span-6">
-                  <div className="text-white truncate">{item.product_name}</div>
-                  <div className="text-zinc-500 font-mono">{item.product_code}</div>
+            {invoice.items.map((item) => {
+              const gross = Number(item.unit_price) * item.quantity;
+              const disc = Number(item.discount_amount || 0);
+              return (
+                <div key={item.id} className="grid grid-cols-12 text-xs py-1.5 border-b border-zinc-800">
+                  <div className="col-span-5">
+                    <div className="text-white truncate font-medium">{item.product_name}</div>
+                    <div className="text-zinc-500 font-mono text-[11px]">{item.product_code}</div>
+                    {disc > 0 && (
+                      <div className="text-emerald-400 text-[10px]">
+                        Save: -{fmt(disc)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="col-span-2 text-center text-zinc-300">{item.quantity}</div>
+                  <div className="col-span-2 text-right text-zinc-300">
+                    {Number(item.unit_price).toFixed(2)}
+                  </div>
+                  <div className="col-span-3 text-right">
+                    {disc > 0 && (
+                      <div className="line-through text-zinc-500 text-[10px]">
+                        {gross.toFixed(2)}
+                      </div>
+                    )}
+                    <span className="text-white font-semibold">
+                      {Number(item.line_total).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-                <div className="col-span-2 text-center text-zinc-300">{item.quantity}</div>
-                <div className="col-span-2 text-right text-zinc-300">
-                  {Number(item.unit_price).toFixed(2)}
-                </div>
-                <div className="col-span-2 text-right text-white font-semibold">
-                  {Number(item.line_total).toFixed(2)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Totals */}
-          <div className="space-y-1 pt-2 text-xs">
+          <div className="space-y-1.5 pt-2 text-xs">
             <div className="flex justify-between text-zinc-400">
               <span>Subtotal</span>
-              <span>{fmt(invoice.subtotal)}</span>
+              <span className="font-mono">{fmt(invoice.subtotal)}</span>
             </div>
             {invoice.discount_amount > 0 && (
-              <div className="flex justify-between text-amber-400">
-                <span>Discount</span>
-                <span>- {fmt(invoice.discount_amount)}</span>
+              <div className="flex justify-between text-emerald-400 font-medium">
+                <span>Total Discount</span>
+                <span className="font-mono">- {fmt(invoice.discount_amount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg font-black text-white border-t border-zinc-700 pt-2 mt-1">
-              <span>TOTAL</span>
-              <span>{fmt(invoice.total_amount)}</span>
+            <div className="flex justify-between text-base font-black text-white border-t border-zinc-700 pt-2 mt-1">
+              <span>FINAL TOTAL</span>
+              <span className="text-[#eb4826] font-mono">{fmt(invoice.total_amount)}</span>
             </div>
-            <div className="flex justify-between text-zinc-400">
-              <span>Payment ({paymentLabels[invoice.payment_method]})</span>
-              <span>{fmt(invoice.amount_paid)}</span>
+            <div className="flex justify-between text-zinc-300">
+              <span>Amount Received ({paymentLabels[invoice.payment_method] || invoice.payment_method})</span>
+              <span className="font-mono">{fmt(invoice.amount_paid)}</span>
             </div>
             {invoice.change_amount > 0 && (
-              <div className="flex justify-between text-emerald-400 font-semibold">
-                <span>Change</span>
-                <span>{fmt(invoice.change_amount)}</span>
+              <div className="flex justify-between text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded">
+                <span>Change to Return</span>
+                <span className="font-mono">{fmt(invoice.change_amount)}</span>
+              </div>
+            )}
+            {invoice.amount_paid < invoice.total_amount && (
+              <div className="flex justify-between text-red-400 font-bold bg-red-500/10 px-2 py-1 rounded">
+                <span>Remaining Balance</span>
+                <span className="font-mono">{fmt(invoice.total_amount - invoice.amount_paid)}</span>
               </div>
             )}
           </div>

@@ -9,6 +9,7 @@ class InvoiceItemCreate(BaseModel):
     product_id: int = Field(..., gt=0)
     quantity: int = Field(..., gt=0)
     unit_price: float | None = Field(None, ge=0)
+    discount_amount: float | None = Field(0.0, ge=0)
 
 
 class InvoiceCreate(BaseModel):

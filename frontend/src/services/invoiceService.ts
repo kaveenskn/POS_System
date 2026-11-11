@@ -156,12 +156,16 @@ export const invoiceService = {
     }
 
     let subtotal = 0;
+    let totalItemDiscounts = 0;
     const invoiceItems = payload.items.map((item, idx) => {
       const p = localProducts.find((mp) => mp.id === item.product_id);
-      const unitPrice = p ? p.selling_price : 1000;
+      const unitPrice = item.unit_price ?? (p ? p.selling_price : 1000);
       const costPrice = p ? p.cost_price : 800;
-      const lineTotal = unitPrice * item.quantity;
-      subtotal += lineTotal;
+      const grossLine = unitPrice * item.quantity;
+      const itemDisc = Math.min(grossLine, Math.max(0, item.discount_amount ?? 0));
+      const lineTotal = Math.max(0, grossLine - itemDisc);
+      subtotal += grossLine;
+      totalItemDiscounts += itemDisc;
       return {
         id: idx + 1,
         product_id: item.product_id,
@@ -170,12 +174,14 @@ export const invoiceService = {
         unit_price: unitPrice,
         cost_price: costPrice,
         quantity: item.quantity,
+        discount_amount: itemDisc,
         line_total: lineTotal,
       };
     });
 
-    const discount = payload.discount_amount ?? 0;
-    const total = Math.max(0, subtotal - discount);
+    const billDiscount = Math.min(Math.max(0, subtotal - totalItemDiscounts), payload.discount_amount ?? 0);
+    const totalDiscount = totalItemDiscounts + billDiscount;
+    const total = Math.max(0, subtotal - totalDiscount);
     const paid = payload.amount_paid;
     const change = Math.max(0, paid - total);
 
@@ -185,7 +191,7 @@ export const invoiceService = {
       customer_id: payload.customer_id ?? null,
       customer_name: 'Walk-in Customer',
       subtotal,
-      discount_amount: discount,
+      discount_amount: totalDiscount,
       total_amount: total,
       payment_method: payload.payment_method,
       amount_paid: paid,

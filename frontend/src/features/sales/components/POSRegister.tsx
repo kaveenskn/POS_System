@@ -4,6 +4,7 @@ import type {
   CartItem,
   Customer,
   CustomerCreateInput,
+  DiscountType,
   InvoiceResponse,
   PaymentMethod,
 } from '../../../types/invoice.types';
@@ -23,12 +24,28 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 
 type ScanState = 'idle' | 'scanning' | 'found' | 'not_found';
 
+const calcItemDiscount = (
+  unitPrice: number,
+  qty: number,
+  type: DiscountType,
+  val: number
+): number => {
+  const gross = unitPrice * qty;
+  if (!val || val <= 0 || isNaN(val)) return 0;
+  if (type === 'percentage') {
+    const clampedPct = Math.min(100, Math.max(0, val));
+    return Math.round(((gross * clampedPct) / 100) * 100) / 100;
+  }
+  return Math.min(gross, Math.max(0, val));
+};
+
 export const POSRegister: FC = () => {
   const [productSearch, setProductSearch] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discount, setDiscount] = useState('0');
+  const [billDiscountType, setBillDiscountType] = useState<DiscountType>('fixed');
+  const [billDiscountValue, setBillDiscountValue] = useState<string>('0');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [amountPaid, setAmountPaid] = useState('');
   const [notes, setNotes] = useState('');
@@ -61,11 +78,21 @@ export const POSRegister: FC = () => {
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Computed totals
-  const subtotal = cart.reduce((s, i) => s + i.line_total, 0);
-  const discountAmt = Math.min(parseFloat(discount) || 0, subtotal);
-  const total = Math.max(0, subtotal - discountAmt);
+  const grossSubtotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const totalProductDiscounts = cart.reduce((s, i) => s + i.discount_amount, 0);
+  const netAfterProductDiscounts = Math.max(0, grossSubtotal - totalProductDiscounts);
+
+  const parsedBillDiscountVal = Math.max(0, parseFloat(billDiscountValue) || 0);
+  const billDiscountAmount =
+    billDiscountType === 'percentage'
+      ? Math.round(((netAfterProductDiscounts * Math.min(100, parsedBillDiscountVal)) / 100) * 100) / 100
+      : Math.min(netAfterProductDiscounts, parsedBillDiscountVal);
+
+  const totalDiscount = totalProductDiscounts + billDiscountAmount;
+  const finalTotal = Math.max(0, netAfterProductDiscounts - billDiscountAmount);
   const paid = parseFloat(amountPaid) || 0;
-  const change = Math.max(0, paid - total);
+  const change = Math.max(0, paid - finalTotal);
+  const remainingBalance = Math.max(0, finalTotal - paid);
 
   // ─── addToCart (shared by search-select and scanner) ────────────────────────
   const addToCart = useCallback((product: Product) => {
@@ -83,9 +110,21 @@ export const POSRegister: FC = () => {
           );
           return prev;
         }
+        const newQty = existing.quantity + 1;
+        const newDisc = calcItemDiscount(
+          existing.unit_price,
+          newQty,
+          existing.discount_type,
+          existing.discount_value
+        );
         return prev.map((i) =>
           i.product_id === product.id
-            ? { ...i, quantity: i.quantity + 1, line_total: i.unit_price * (i.quantity + 1) }
+            ? {
+                ...i,
+                quantity: newQty,
+                discount_amount: newDisc,
+                line_total: Math.max(0, existing.unit_price * newQty - newDisc),
+              }
             : i
         );
       }
@@ -99,6 +138,9 @@ export const POSRegister: FC = () => {
           cost_price: Number(product.cost_price),
           available_stock: product.quantity,
           quantity: 1,
+          discount_type: 'percentage',
+          discount_value: 0,
+          discount_amount: 0,
           line_total: Number(product.selling_price),
         },
       ];
@@ -316,7 +358,44 @@ export const POSRegister: FC = () => {
       prev.map((i) => {
         if (i.product_id !== productId) return i;
         const clamped = Math.max(1, Math.min(qty, i.available_stock));
-        return { ...i, quantity: clamped, line_total: i.unit_price * clamped };
+        const disc = calcItemDiscount(i.unit_price, clamped, i.discount_type, i.discount_value);
+        return {
+          ...i,
+          quantity: clamped,
+          discount_amount: disc,
+          line_total: Math.max(0, i.unit_price * clamped - disc),
+        };
+      })
+    );
+  };
+
+  const updateItemDiscountType = (productId: number, type: DiscountType) => {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.product_id !== productId) return i;
+        const disc = calcItemDiscount(i.unit_price, i.quantity, type, i.discount_value);
+        return {
+          ...i,
+          discount_type: type,
+          discount_amount: disc,
+          line_total: Math.max(0, i.unit_price * i.quantity - disc),
+        };
+      })
+    );
+  };
+
+  const updateItemDiscountValue = (productId: number, val: number) => {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.product_id !== productId) return i;
+        const safeVal = Math.max(0, isNaN(val) ? 0 : val);
+        const disc = calcItemDiscount(i.unit_price, i.quantity, i.discount_type, safeVal);
+        return {
+          ...i,
+          discount_value: safeVal,
+          discount_amount: disc,
+          line_total: Math.max(0, i.unit_price * i.quantity - disc),
+        };
       })
     );
   };
@@ -327,7 +406,8 @@ export const POSRegister: FC = () => {
 
   const clearCart = () => {
     setCart([]);
-    setDiscount('0');
+    setBillDiscountValue('0');
+    setBillDiscountType('fixed');
     setAmountPaid('');
     setNotes('');
     setSelectedCustomer(null);
@@ -338,15 +418,28 @@ export const POSRegister: FC = () => {
   // ─── Complete Sale ───────────────────────────────────────────────────────────
   const handleCompleteSale = async () => {
     setError(null);
-    if (cart.length === 0) { setError('Add at least one product to the cart.'); return; }
-    if (paid < total) { setError(`Amount paid (${fmt(paid)}) is less than total (${fmt(total)}).`); return; }
+    if (cart.length === 0) {
+      setError('Add at least one product to the cart.');
+      return;
+    }
+    if (paid < finalTotal) {
+      setError(
+        `Amount received (${fmt(paid)}) is less than total payable (${fmt(finalTotal)}). Short by ${fmt(finalTotal - paid)}.`
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const invoice = await invoiceService.createInvoice({
         customer_id: selectedCustomer?.id,
-        items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
-        discount_amount: discountAmt,
+        items: cart.map((i) => ({
+          product_id: i.product_id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          discount_amount: i.discount_amount,
+        })),
+        discount_amount: billDiscountAmount,
         payment_method: paymentMethod,
         amount_paid: paid,
         notes: notes.trim() || undefined,
@@ -520,6 +613,7 @@ export const POSRegister: FC = () => {
                   <th className="px-4 py-3 text-left">Product</th>
                   <th className="px-4 py-3 text-right">Unit Price</th>
                   <th className="px-4 py-3 text-center">Qty</th>
+                  <th className="px-4 py-3 text-center">Discount</th>
                   <th className="px-4 py-3 text-right">Total</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -527,7 +621,7 @@ export const POSRegister: FC = () => {
               <tbody className="divide-y divide-zinc-800/50">
                 {cart.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-zinc-600 text-sm">
+                    <td colSpan={6} className="px-4 py-10 text-center text-zinc-600 text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <svg className="w-8 h-8 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 9V5a2 2 0 012-2h2M3 15v4a2 2 0 002 2h2M15 3h4a2 2 0 012 2v2M15 21h4a2 2 0 002-2v-2" />
@@ -551,8 +645,13 @@ export const POSRegister: FC = () => {
                         <div className="font-medium text-white">{item.product_name}</div>
                         <div className="text-xs font-mono text-[#eb4826]">{item.product_code}</div>
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-zinc-300">
-                        {fmt(item.unit_price)}
+                      <td className="px-4 py-3 text-right font-mono">
+                        <div className="text-zinc-300">{fmt(item.unit_price)}</div>
+                        {item.discount_amount > 0 && (
+                          <div className="text-[11px] text-emerald-400 font-sans">
+                            Net: {fmt(item.line_total / item.quantity)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -578,8 +677,64 @@ export const POSRegister: FC = () => {
                         </div>
                         <div className="text-xs text-zinc-600 text-center mt-0.5">/{item.available_stock} stock</div>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-emerald-400">
-                        {fmt(item.line_total)}
+                      <td className="px-4 py-3 text-center">
+                        <div className="inline-flex flex-col items-center gap-1">
+                          <div className="flex items-center bg-[#0b0c10] border border-zinc-700 rounded-lg p-0.5">
+                            <button
+                              type="button"
+                              onClick={() => updateItemDiscountType(item.product_id, 'percentage')}
+                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${
+                                item.discount_type === 'percentage'
+                                  ? 'bg-[#eb4826] text-white shadow'
+                                  : 'text-zinc-400 hover:text-white'
+                              }`}
+                              title="Percentage Discount (%)"
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateItemDiscountType(item.product_id, 'fixed')}
+                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${
+                                item.discount_type === 'fixed'
+                                  ? 'bg-[#eb4826] text-white shadow'
+                                  : 'text-zinc-400 hover:text-white'
+                              }`}
+                              title="Fixed Discount (Rs.)"
+                            >
+                              Rs
+                            </button>
+                            <input
+                              type="number"
+                              data-testid="item-discount-input"
+                              aria-label="Item discount value"
+                              min="0"
+                              max={item.discount_type === 'percentage' ? 100 : item.unit_price * item.quantity}
+                              step={item.discount_type === 'percentage' ? '1' : '10'}
+                              value={item.discount_value === 0 ? '' : item.discount_value}
+                              placeholder="0"
+                              onChange={(e) =>
+                                updateItemDiscountValue(item.product_id, parseFloat(e.target.value) || 0)
+                              }
+                              className="w-14 text-right bg-transparent text-xs text-amber-400 font-mono focus:outline-none pr-1"
+                            />
+                          </div>
+                          {item.discount_amount > 0 && (
+                            <span data-testid="item-discount-badge" className="text-[10px] text-emerald-400 font-medium">
+                              -{fmt(item.discount_amount)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold">
+                        {item.discount_amount > 0 && (
+                          <div className="text-[10px] line-through text-zinc-500 font-mono">
+                            {fmt(item.unit_price * item.quantity)}
+                          </div>
+                        )}
+                        <span data-testid="item-line-total" className="text-emerald-400 font-mono">
+                          {fmt(item.line_total)}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -732,26 +887,80 @@ export const POSRegister: FC = () => {
             )}
           </div>
 
-          {/* Totals */}
-          <div className="space-y-2 text-sm">
+          {/* Checkout Summary */}
+          <div className="space-y-2.5 text-sm">
             <div className="flex justify-between text-zinc-400">
               <span>Subtotal</span>
-              <span className="font-mono">{fmt(subtotal)}</span>
+              <span data-testid="gross-subtotal" className="font-mono text-white">{fmt(grossSubtotal)}</span>
             </div>
-            <div className="flex items-center justify-between text-zinc-400">
-              <span>Discount (Rs.)</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
-                className="w-28 text-right bg-[#0b0c10] border border-zinc-700 rounded-lg px-2 py-1 text-sm text-amber-400 focus:outline-none focus:border-[#eb4826]"
-              />
+
+            {totalProductDiscounts > 0 && (
+              <div className="flex justify-between text-emerald-400 text-xs">
+                <span>Product Discounts</span>
+                <span data-testid="product-discounts-total" className="font-mono font-medium">- {fmt(totalProductDiscounts)}</span>
+              </div>
+            )}
+
+            {/* Overall Bill Discount */}
+            <div className="p-3 bg-[#0f1117] border border-zinc-800 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-zinc-300">Bill Discount</span>
+                <div className="flex items-center bg-[#07080a] border border-zinc-700 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setBillDiscountType('fixed')}
+                    className={`px-2 py-0.5 text-xs font-bold rounded transition ${
+                      billDiscountType === 'fixed'
+                        ? 'bg-[#eb4826] text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Rs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillDiscountType('percentage')}
+                    className={`px-2 py-0.5 text-xs font-bold rounded transition ${
+                      billDiscountType === 'percentage'
+                        ? 'bg-[#eb4826] text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    %
+                  </button>
+                  <input
+                    type="number"
+                    data-testid="bill-discount-input"
+                    aria-label="Overall bill discount value"
+                    min="0"
+                    max={billDiscountType === 'percentage' ? 100 : netAfterProductDiscounts}
+                    step={billDiscountType === 'percentage' ? '1' : '50'}
+                    value={billDiscountValue === '0' ? '' : billDiscountValue}
+                    placeholder="0"
+                    onChange={(e) => setBillDiscountValue(e.target.value)}
+                    className="w-20 text-right bg-transparent text-xs text-amber-400 font-mono focus:outline-none pr-1.5"
+                  />
+                </div>
+              </div>
+              {billDiscountAmount > 0 && (
+                <div className="flex justify-between text-xs text-emerald-400 pt-1 border-t border-zinc-800/60">
+                  <span>Bill Discount Applied ({billDiscountType === 'percentage' ? `${billDiscountValue}%` : 'Fixed'})</span>
+                  <span data-testid="bill-discount-amount" className="font-mono font-medium">- {fmt(billDiscountAmount)}</span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between font-black text-xl text-white border-t border-zinc-700 pt-3">
-              <span>TOTAL</span>
-              <span className="text-[#eb4826]">{fmt(total)}</span>
+
+            {totalDiscount > 0 && (
+              <div className="flex justify-between text-xs font-semibold text-emerald-400 px-1">
+                <span>Total Discounts (Product + Bill)</span>
+                <span data-testid="total-discounts" className="font-mono">- {fmt(totalDiscount)}</span>
+              </div>
+            )}
+
+            {/* Final Total */}
+            <div className="flex justify-between font-black text-xl text-white border-t border-zinc-700/80 pt-3">
+              <span>Final Total</span>
+              <span data-testid="final-total" className="text-[#eb4826] font-mono">{fmt(finalTotal)}</span>
             </div>
           </div>
 
@@ -778,9 +987,20 @@ export const POSRegister: FC = () => {
 
           {/* Amount Paid */}
           <div>
-            <label htmlFor="amount-paid" className="block text-xs font-semibold text-zinc-400 mb-1.5">
-              Amount Received (Rs.)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="amount-paid" className="text-xs font-semibold text-zinc-400">
+                Amount Received (Rs.)
+              </label>
+              {paid > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAmountPaid('')}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             <input
               id="amount-paid"
               type="number"
@@ -788,34 +1008,85 @@ export const POSRegister: FC = () => {
               step="0.01"
               value={amountPaid}
               onChange={(e) => setAmountPaid(e.target.value)}
-              placeholder={total.toFixed(2)}
+              placeholder={finalTotal > 0 ? finalTotal.toFixed(2) : '0.00'}
               className="w-full bg-[#0b0c10] border border-zinc-700 rounded-xl px-4 py-2.5 text-base text-white focus:outline-none focus:border-[#eb4826]"
             />
             {/* Quick fill buttons */}
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {[total, Math.ceil(total / 100) * 100, Math.ceil(total / 500) * 500, Math.ceil(total / 1000) * 1000]
-                .filter((v, i, arr) => arr.indexOf(v) === i && v > 0)
-                .slice(0, 4)
-                .map((v) => (
+            {finalTotal > 0 && (
+              <div className="flex gap-1.5 mt-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setAmountPaid(finalTotal.toFixed(2))}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-[#eb4826] text-zinc-200 hover:text-white font-semibold transition"
+                >
+                  Exact ({fmt(finalTotal)})
+                </button>
+                {[
+                  Math.ceil(finalTotal / 100) * 100,
+                  Math.ceil(finalTotal / 500) * 500,
+                  Math.ceil(finalTotal / 1000) * 1000,
+                  Math.ceil(finalTotal / 5000) * 5000,
+                ]
+                  .filter((v, idx, arr) => arr.indexOf(v) === idx && v > finalTotal)
+                  .slice(0, 3)
+                  .map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAmountPaid(v.toFixed(2))}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 hover:text-white transition"
+                    >
+                      {fmt(v)}
+                    </button>
+                  ))}
+                {/* Note addition buttons */}
+                {[100, 500, 1000, 5000].map((addAmt) => (
                   <button
-                    key={v}
+                    key={`add-${addAmt}`}
                     type="button"
-                    onClick={() => setAmountPaid(v.toFixed(2))}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
+                    onClick={() => setAmountPaid(((parseFloat(amountPaid) || 0) + addAmt).toFixed(2))}
+                    className="text-[11px] px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition"
                   >
-                    {fmt(v)}
+                    +{addAmt}
                   </button>
                 ))}
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Change */}
+          {/* Balance / Change */}
           {paid > 0 && (
-            <div className={`flex justify-between font-semibold rounded-xl px-4 py-3 ${
-              paid >= total ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
-            }`}>
-              <span>{paid >= total ? 'Change' : 'Short by'}</span>
-              <span>{paid >= total ? fmt(change) : fmt(total - paid)}</span>
+            <div
+              data-testid="payment-balance-banner"
+              className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+                paid >= finalTotal
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold">
+                  {paid >= finalTotal ? '✓' : '⚠'}
+                </span>
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider">
+                    {paid >= finalTotal ? 'Balance / Change to Return' : 'Remaining Balance / Short Amount'}
+                  </div>
+                  <div className="text-[11px] opacity-80">
+                    {paid >= finalTotal
+                      ? 'Hand back to customer'
+                      : 'Additional payment required'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span
+                  data-testid={paid >= finalTotal ? 'change-amount' : 'remaining-balance'}
+                  className="font-mono text-lg font-black"
+                >
+                  {paid >= finalTotal ? fmt(change) : fmt(remainingBalance)}
+                </span>
+              </div>
             </div>
           )}
 
@@ -853,7 +1124,7 @@ export const POSRegister: FC = () => {
                 Processing…
               </span>
             ) : (
-              `✓  Complete Sale  •  ${fmt(total)}`
+              `✓  Complete Sale  •  ${fmt(finalTotal)}`
             )}
           </button>
         </div>

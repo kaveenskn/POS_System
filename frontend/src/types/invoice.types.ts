@@ -25,10 +25,13 @@ export interface CustomerListResponse {
 // Invoice / Sales types
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer';
 export type InvoiceStatus = 'draft' | 'completed';
+export type DiscountType = 'percentage' | 'fixed';
 
 export interface InvoiceItemCreate {
   product_id: number;
   quantity: number;
+  unit_price?: number;
+  discount_amount?: number;
 }
 
 export interface InvoiceCreate {
@@ -48,6 +51,7 @@ export interface InvoiceItemResponse {
   unit_price: number;
   cost_price: number;
   quantity: number;
+  discount_amount?: number;
   line_total: number;
 }
 
@@ -82,6 +86,9 @@ export interface CartItem {
   cost_price: number;
   available_stock: number;
   quantity: number;
+  discount_type: DiscountType;
+  discount_value: number;
+  discount_amount: number;
   line_total: number;
 }
 
